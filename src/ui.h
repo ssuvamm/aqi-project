@@ -21,4 +21,6 @@ struct UiModel {
 
 void uiBegin();
 void uiSetModel(const UiModel& m);   // redraws current screen
-void uiHandleTouch();                // call every loop(); tap toggles screens
+// The delivered panel has no touch controller; screens are switched with
+// 'd' over the serial monitor (future: push button on the freed D0 pin).
+void uiToggleScreen();

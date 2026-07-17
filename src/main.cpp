@@ -93,6 +93,8 @@ void setup() {
 
     WiFi.mode(WIFI_OFF);  // no networking in v1 — saves ~70 mA and heat
 
+    pinMode(PIN_BUTTON, INPUT_PULLDOWN_16);  // D0: only pin with pull-DOWN; button feeds 3V3
+
     pmsSerial.begin(PMS_BAUD, SWSERIAL_8N1, PIN_PMS_RX, -1);   // RX only
     mhzSerial.begin(MHZ_BAUD, SWSERIAL_8N1, PIN_MHZ_RX, PIN_MHZ_TX);
     mhzSerial.enableRx(false);
@@ -141,6 +143,20 @@ void loop() {
             break;
     }
 
-    uiHandleTouch();
+    // Screen toggle: push button on D0 (pressed = HIGH), or 'd' over the
+    // serial monitor. Rising-edge detect + 250 ms lockout as debounce.
+    static bool btnPrev = false;
+    static uint32_t btnLastMs = 0;
+    bool btn = digitalRead(PIN_BUTTON) == HIGH;
+    if (btn && !btnPrev && now - btnLastMs > 250) {
+        btnLastMs = now;
+        uiToggleScreen();
+    }
+    btnPrev = btn;
+
+    if (Serial.available()) {
+        char c = (char)Serial.read();
+        if (c == 'd' || c == 'D') uiToggleScreen();
+    }
     yield();
 }

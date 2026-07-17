@@ -1,0 +1,1488 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Length 3363 >>
+stream
+BT /F2 18 Tf 54 730.00 Td (AQI Monitor Firmware Source Code Report) Tj ET
+BT /F1 10 Tf 54 696.00 Td (This report explains the code in `src/`, `include/`, and `platformio.ini`.) Tj ET
+BT /F1 10 Tf 54 683.00 Td (It assumes you know web development and some Python, but are new to C, C++,) Tj ET
+BT /F1 10 Tf 54 670.00 Td (Arduino firmware, and header files.) Tj ET
+BT /F2 14 Tf 54 643.00 Td (1. Big Picture) Tj ET
+BT /F1 10 Tf 54 616.00 Td (This project is firmware for an ESP8266 D1 Mini air quality monitor. Firmware is) Tj ET
+BT /F1 10 Tf 54 603.00 Td (software that runs directly on a microcontroller instead of inside a browser,) Tj ET
+BT /F1 10 Tf 54 590.00 Td (Node.js, or a desktop operating system.) Tj ET
+BT /F1 10 Tf 54 571.00 Td (The hardware pieces are:) Tj ET
+BT /F1 10 Tf 54 552.00 Td (- ESP8266 D1 Mini: the small Wi-Fi microcontroller board that runs the code.) Tj ET
+BT /F1 10 Tf 54 539.00 Td (- PMS5003: a particulate matter sensor. It reports PM1.0, PM2.5, PM10, and) Tj ET
+BT /F1 10 Tf 54 526.00 Td (  particle counts.) Tj ET
+BT /F1 10 Tf 54 513.00 Td (- MH-Z19E: a CO2 sensor. It reports carbon dioxide in ppm and a rough internal) Tj ET
+BT /F1 10 Tf 54 500.00 Td (  temperature.) Tj ET
+BT /F1 10 Tf 54 487.00 Td (- 2.4 inch SPI TFT display: the screen.) Tj ET
+BT /F1 10 Tf 54 474.00 Td (- Push button on D0: switches between display screens.) Tj ET
+BT /F1 10 Tf 54 455.00 Td (The firmware does four major jobs:) Tj ET
+BT /F1 10 Tf 54 436.00 Td (1. Read the PMS5003 particle sensor over serial.) Tj ET
+BT /F1 10 Tf 54 423.00 Td (2. Read the MH-Z19E CO2 sensor over serial.) Tj ET
+BT /F1 10 Tf 54 410.00 Td (3. Convert particle readings into US EPA AQI numbers and categories.) Tj ET
+BT /F1 10 Tf 54 397.00 Td (4. Draw a dashboard/details UI on the TFT screen.) Tj ET
+BT /F1 10 Tf 54 378.00 Td (The project is organized like this:) Tj ET
+BT /F3 8.5 Tf 54 355.00 Td (platformio.ini       Build configuration for PlatformIO.) Tj ET
+BT /F3 8.5 Tf 54 344.00 Td (include/config.h     Shared pin numbers, baud rates, timings, and options.) Tj ET
+BT /F3 8.5 Tf 54 333.00 Td (src/main.cpp         Main Arduino setup/loop and sensor scheduling.) Tj ET
+BT /F3 8.5 Tf 54 322.00 Td (src/pms5003.h/.cpp   Driver for the PMS5003 particle sensor.) Tj ET
+BT /F3 8.5 Tf 54 311.00 Td (src/mhz19.h/.cpp     Driver for the MH-Z19E CO2 sensor.) Tj ET
+BT /F3 8.5 Tf 54 300.00 Td (src/aqi.h/.cpp       AQI math and color/category helpers.) Tj ET
+BT /F3 8.5 Tf 54 289.00 Td (src/ui.h/.cpp        Display data model and TFT drawing code.) Tj ET
+BT /F2 14 Tf 54 260.00 Td (2. Arduino and C++ Basics) Tj ET
+BT /F2 12 Tf 54 227.00 Td (`.cpp` files) Tj ET
+BT /F1 10 Tf 54 204.00 Td (`.cpp` files contain C++ implementation code. In web terms, think of them like) Tj ET
+BT /F1 10 Tf 54 191.00 Td (JavaScript or TypeScript modules that contain the actual function bodies.) Tj ET
+BT /F1 10 Tf 54 172.00 Td (Example:) Tj ET
+BT /F3 8.5 Tf 54 149.00 Td (int aqiFromPm25\(float ugm3\) { return interpolate\(PM25_BP, 6, ugm3\); }) Tj ET
+BT /F1 10 Tf 54 128.00 Td (This defines a function named `aqiFromPm25`.) Tj ET
+BT /F2 12 Tf 54 103.00 Td (`.h` files) Tj ET
+BT /F1 10 Tf 54 80.00 Td (`.h` files are header files. They usually declare the public shape of code:) Tj ET
+BT /F1 10 Tf 54 67.00 Td (functions, classes, structs, constants, and types that other files are allowed) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Length 2989 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (to use.) Tj ET
+BT /F1 10 Tf 54 719.00 Td (In web-dev terms, a header file is loosely like a TypeScript `.d.ts` file plus) Tj ET
+BT /F1 10 Tf 54 706.00 Td (an export list. It tells other files "these functions/classes exist", while the) Tj ET
+BT /F1 10 Tf 54 693.00 Td (`.cpp` file says "here is how they work".) Tj ET
+BT /F1 10 Tf 54 674.00 Td (Example from `aqi.h`:) Tj ET
+BT /F3 8.5 Tf 54 651.00 Td (int aqiFromPm25\(float ugm3\);) Tj ET
+BT /F1 10 Tf 54 630.00 Td (That line is a declaration. It does not contain the body. The matching body is) Tj ET
+BT /F1 10 Tf 54 617.00 Td (in `aqi.cpp`.) Tj ET
+BT /F2 12 Tf 54 592.00 Td (`#include`) Tj ET
+BT /F1 10 Tf 54 569.00 Td (`#include` copies declarations from another file into the current file before) Tj ET
+BT /F1 10 Tf 54 556.00 Td (compilation. It is closer to Python `import` or JavaScript `import`, but more) Tj ET
+BT /F1 10 Tf 54 543.00 Td (literal: the C/C++ preprocessor inserts the contents.) Tj ET
+BT /F1 10 Tf 54 524.00 Td (Examples:) Tj ET
+BT /F3 8.5 Tf 54 501.00 Td (#include <Arduino.h>) Tj ET
+BT /F3 8.5 Tf 54 490.00 Td (#include "aqi.h") Tj ET
+BT /F1 10 Tf 54 469.00 Td (Angle brackets usually mean "library/framework header". Quotes usually mean) Tj ET
+BT /F1 10 Tf 54 456.00 Td ("local project header".) Tj ET
+BT /F2 12 Tf 54 431.00 Td (`#pragma once`) Tj ET
+BT /F1 10 Tf 54 408.00 Td (Header files in this project start with:) Tj ET
+BT /F3 8.5 Tf 54 385.00 Td (#pragma once) Tj ET
+BT /F1 10 Tf 54 364.00 Td (This prevents the same header from being included multiple times in one compile) Tj ET
+BT /F1 10 Tf 54 351.00 Td (unit. Without it, duplicate declarations can cause compiler errors.) Tj ET
+BT /F2 12 Tf 54 326.00 Td (`setup\(\)` and `loop\(\)`) Tj ET
+BT /F1 10 Tf 54 303.00 Td (Arduino programs use two special functions:) Tj ET
+BT /F1 10 Tf 54 284.00 Td (- `setup\(\)` runs once when the board boots.) Tj ET
+BT /F1 10 Tf 54 271.00 Td (- `loop\(\)` runs repeatedly forever.) Tj ET
+BT /F1 10 Tf 54 252.00 Td (This is like having an app initialization function, then an infinite event loop.) Tj ET
+BT /F1 10 Tf 54 239.00 Td (There is no normal `main\(\)` written by you; the Arduino framework provides it) Tj ET
+BT /F1 10 Tf 54 226.00 Td (and calls your `setup\(\)` and `loop\(\)`.) Tj ET
+BT /F2 12 Tf 54 201.00 Td (Integer types such as `uint8_t`, `uint16_t`, `uint32_t`) Tj ET
+BT /F1 10 Tf 54 178.00 Td (Firmware cares about exact sizes because memory is limited and hardware) Tj ET
+BT /F1 10 Tf 54 165.00 Td (protocols use byte-level formats.) Tj ET
+BT /F1 10 Tf 54 146.00 Td (- `uint8_t`: unsigned 8-bit integer, 0 to 255. One byte.) Tj ET
+BT /F1 10 Tf 54 133.00 Td (- `uint16_t`: unsigned 16-bit integer, 0 to 65535. Two bytes.) Tj ET
+BT /F1 10 Tf 54 120.00 Td (- `uint32_t`: unsigned 32-bit integer, 0 to about 4.29 billion. Four bytes.) Tj ET
+BT /F1 10 Tf 54 101.00 Td (The `u` means unsigned, so negative values are not allowed.) Tj ET
+BT /F2 12 Tf 54 76.00 Td (`constexpr`) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Length 2599 >>
+stream
+BT /F1 10 Tf 54 732.00 Td (`constexpr` defines a compile-time constant.) Tj ET
+BT /F1 10 Tf 54 713.00 Td (Example:) Tj ET
+BT /F3 8.5 Tf 54 690.00 Td (constexpr uint32_t SAMPLE_INTERVAL_MS = 5000;) Tj ET
+BT /F1 10 Tf 54 669.00 Td (This is like a `const` value in JavaScript, but stronger: the compiler knows it) Tj ET
+BT /F1 10 Tf 54 656.00 Td (can treat the value as fixed while building the firmware.) Tj ET
+BT /F2 12 Tf 54 631.00 Td (Classes and structs) Tj ET
+BT /F1 10 Tf 54 608.00 Td (A `struct` is a group of fields. In this project, structs are mostly simple data) Tj ET
+BT /F1 10 Tf 54 595.00 Td (containers.) Tj ET
+BT /F1 10 Tf 54 576.00 Td (Example:) Tj ET
+BT /F3 8.5 Tf 54 553.00 Td (struct PmsData {) Tj ET
+BT /F3 8.5 Tf 54 542.00 Td (    uint16_t pm1_std, pm25_std, pm10_std;) Tj ET
+BT /F3 8.5 Tf 54 531.00 Td (};) Tj ET
+BT /F1 10 Tf 54 510.00 Td (A `class` groups data and functions together. In this project, each sensor) Tj ET
+BT /F1 10 Tf 54 497.00 Td (driver is a class.) Tj ET
+BT /F1 10 Tf 54 478.00 Td (Example:) Tj ET
+BT /F3 8.5 Tf 54 455.00 Td (class Pms5003 {) Tj ET
+BT /F3 8.5 Tf 54 444.00 Td (public:) Tj ET
+BT /F3 8.5 Tf 54 433.00 Td (    bool poll\(\);) Tj ET
+BT /F3 8.5 Tf 54 422.00 Td (private:) Tj ET
+BT /F3 8.5 Tf 54 411.00 Td (    uint8_t _buf[32];) Tj ET
+BT /F3 8.5 Tf 54 400.00 Td (};) Tj ET
+BT /F1 10 Tf 54 379.00 Td (`public` members can be used by other files. `private` members are internal to) Tj ET
+BT /F1 10 Tf 54 366.00 Td (the class.) Tj ET
+BT /F2 12 Tf 54 341.00 Td (References: `Stream& serial`) Tj ET
+BT /F1 10 Tf 54 318.00 Td (The `&` in `Stream&` means a reference. A reference is like passing an object by) Tj ET
+BT /F1 10 Tf 54 305.00 Td (alias instead of copying it.) Tj ET
+BT /F1 10 Tf 54 286.00 Td (The sensor drivers receive a `Stream&` so they can work with any Arduino stream) Tj ET
+BT /F1 10 Tf 54 273.00 Td (object that supports `read\(\)`, `write\(\)`, and `available\(\)`. Here that stream is) Tj ET
+BT /F1 10 Tf 54 260.00 Td (a `SoftwareSerial` object.) Tj ET
+BT /F2 12 Tf 54 235.00 Td (The anonymous namespace) Tj ET
+BT /F1 10 Tf 54 212.00 Td (Several `.cpp` files contain:) Tj ET
+BT /F3 8.5 Tf 54 189.00 Td (namespace {) Tj ET
+BT /F3 8.5 Tf 54 178.00 Td (    ...) Tj ET
+BT /F3 8.5 Tf 54 167.00 Td (}) Tj ET
+BT /F1 10 Tf 54 146.00 Td (This is an unnamed namespace. It makes the things inside private to that `.cpp`) Tj ET
+BT /F1 10 Tf 54 133.00 Td (file. In JavaScript terms, it is like variables/functions that are not exported) Tj ET
+BT /F1 10 Tf 54 120.00 Td (from a module.) Tj ET
+BT /F2 14 Tf 54 93.00 Td (3. `platformio.ini`) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Length 2901 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (`platformio.ini` is the PlatformIO build configuration. It tells PlatformIO what) Tj ET
+BT /F1 10 Tf 54 725.00 Td (board, framework, libraries, serial speed, upload port, and compiler flags to) Tj ET
+BT /F1 10 Tf 54 712.00 Td (use.) Tj ET
+BT /F2 12 Tf 54 687.00 Td (File comments) Tj ET
+BT /F1 10 Tf 54 664.00 Td (Lines beginning with `;` are comments in INI files. They are documentation for) Tj ET
+BT /F1 10 Tf 54 651.00 Td (humans and are ignored by PlatformIO.) Tj ET
+BT /F1 10 Tf 54 632.00 Td (The top comment says the target hardware is:) Tj ET
+BT /F3 8.5 Tf 54 609.00 Td (ESP8266 D1 Mini + PMS5003 + MH-Z19E + 2.4 inch SPI TFT) Tj ET
+BT /F1 10 Tf 54 588.00 Td (It also explains three common commands:) Tj ET
+BT /F3 8.5 Tf 54 565.00 Td (pio run) Tj ET
+BT /F3 8.5 Tf 54 554.00 Td (pio run -t upload) Tj ET
+BT /F3 8.5 Tf 54 543.00 Td (pio device monitor) Tj ET
+BT /F1 10 Tf 54 522.00 Td (- `pio run`: compile the firmware.) Tj ET
+BT /F1 10 Tf 54 509.00 Td (- `pio run -t upload`: compile and flash it to the board.) Tj ET
+BT /F1 10 Tf 54 496.00 Td (- `pio device monitor`: open the serial monitor to see logs.) Tj ET
+BT /F2 12 Tf 54 471.00 Td (Display driver note) Tj ET
+BT /F1 10 Tf 54 448.00 Td (The comments explain that the delivered display behaves like an ST7789V) Tj ET
+BT /F1 10 Tf 54 435.00 Td (controller, not an ILI9341. Symptoms of using the wrong driver were ignored) Tj ET
+BT /F1 10 Tf 54 422.00 Td (rotation, an 80px noise band, and swapped red/blue colors.) Tj ET
+BT /F1 10 Tf 54 403.00 Td (That is why the default environment is ST7789. There is also a fallback) Tj ET
+BT /F1 10 Tf 54 390.00 Td (environment for ILI9341 displays.) Tj ET
+BT /F2 12 Tf 54 365.00 Td (`[common]`) Tj ET
+BT /F1 10 Tf 54 342.00 Td (This section defines shared build flags used by multiple environments.) Tj ET
+BT /F3 8.5 Tf 54 319.00 Td ([common]) Tj ET
+BT /F3 8.5 Tf 54 308.00 Td (base_flags =) Tj ET
+BT /F1 10 Tf 54 287.00 Td (`base_flags` is a named list of compiler flags. Other environments reuse it via) Tj ET
+BT /F1 10 Tf 54 274.00 Td (`${common.base_flags}`.) Tj ET
+BT /F2 12 Tf 54 249.00 Td (`-DUSER_SETUP_LOADED=1`) Tj ET
+BT /F1 10 Tf 54 226.00 Td (Flags beginning with `-D` define preprocessor macros. They are compile-time) Tj ET
+BT /F1 10 Tf 54 213.00 Td (values.) Tj ET
+BT /F1 10 Tf 54 194.00 Td (This one tells `TFT_eSPI` that the project is providing display setup through) Tj ET
+BT /F1 10 Tf 54 181.00 Td (compiler flags, so you do not need to edit the library's `User_Setup.h`.) Tj ET
+BT /F1 10 Tf 54 162.00 Td (That is useful because library files should usually stay untouched. Project) Tj ET
+BT /F1 10 Tf 54 149.00 Td (configuration belongs in the project.) Tj ET
+BT /F2 12 Tf 54 124.00 Td (TFT pin flags) Tj ET
+BT /F3 8.5 Tf 54 97.00 Td (-DTFT_MISO=12) Tj ET
+BT /F3 8.5 Tf 54 86.00 Td (-DTFT_MOSI=13) Tj ET
+BT /F3 8.5 Tf 54 75.00 Td (-DTFT_SCLK=14) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Length 2872 >>
+stream
+BT /F3 8.5 Tf 54 738.00 Td (-DTFT_CS=15) Tj ET
+BT /F3 8.5 Tf 54 727.00 Td (-DTFT_DC=0) Tj ET
+BT /F3 8.5 Tf 54 716.00 Td (-DTFT_RST=-1) Tj ET
+BT /F1 10 Tf 54 695.00 Td (These define the ESP8266 GPIO pins used by the display.) Tj ET
+BT /F1 10 Tf 54 676.00 Td (- MISO is GPIO12 / D6. It is defined for the SPI bus, but the display SDO is) Tj ET
+BT /F1 10 Tf 54 663.00 Td (  not wired.) Tj ET
+BT /F1 10 Tf 54 650.00 Td (- MOSI is GPIO13 / D7.) Tj ET
+BT /F1 10 Tf 54 637.00 Td (- SCLK is GPIO14 / D5.) Tj ET
+BT /F1 10 Tf 54 624.00 Td (- CS is GPIO15 / D8.) Tj ET
+BT /F1 10 Tf 54 611.00 Td (- DC is GPIO0 / D3.) Tj ET
+BT /F1 10 Tf 54 598.00 Td (- RST is `-1`, meaning the TFT reset is not controlled by a separate GPIO. It) Tj ET
+BT /F1 10 Tf 54 585.00 Td (  is tied to the D1 Mini reset pin.) Tj ET
+BT /F1 10 Tf 54 566.00 Td (These names are required by the `TFT_eSPI` library at compile time.) Tj ET
+BT /F2 12 Tf 54 541.00 Td (Font flags) Tj ET
+BT /F3 8.5 Tf 54 514.00 Td (-DLOAD_GLCD=1) Tj ET
+BT /F3 8.5 Tf 54 503.00 Td (-DLOAD_FONT2=1) Tj ET
+BT /F3 8.5 Tf 54 492.00 Td (-DLOAD_FONT4=1) Tj ET
+BT /F3 8.5 Tf 54 481.00 Td (-DLOAD_FONT6=1) Tj ET
+BT /F3 8.5 Tf 54 470.00 Td (-DLOAD_FONT7=1) Tj ET
+BT /F3 8.5 Tf 54 459.00 Td (-DLOAD_FONT8=1) Tj ET
+BT /F3 8.5 Tf 54 448.00 Td (-DLOAD_GFXFF=1) Tj ET
+BT /F1 10 Tf 54 427.00 Td (These tell `TFT_eSPI` which built-in fonts to include in the firmware. Fonts) Tj ET
+BT /F1 10 Tf 54 414.00 Td (consume flash space, so embedded projects often include only the fonts they) Tj ET
+BT /F1 10 Tf 54 401.00 Td (need.) Tj ET
+BT /F1 10 Tf 54 382.00 Td (The UI code later asks for fonts by number:) Tj ET
+BT /F3 8.5 Tf 54 359.00 Td (tft.drawString\("US AQI", x, y, 2\);) Tj ET
+BT /F3 8.5 Tf 54 348.00 Td (tft.drawNumber\(model.aqi, x, y, 6\);) Tj ET
+BT /F1 10 Tf 54 327.00 Td (The final `2` or `6` is the font number.) Tj ET
+BT /F2 12 Tf 54 302.00 Td (SPI speed flags) Tj ET
+BT /F3 8.5 Tf 54 275.00 Td (-DSPI_FREQUENCY=27000000) Tj ET
+BT /F3 8.5 Tf 54 264.00 Td (-DSPI_READ_FREQUENCY=20000000) Tj ET
+BT /F1 10 Tf 54 243.00 Td (These set display SPI speeds. SPI is the communication bus used by the screen.) Tj ET
+BT /F1 10 Tf 54 230.00 Td (The comment says 27 MHz is safe on jumper wires. Faster SPI means faster screen) Tj ET
+BT /F1 10 Tf 54 217.00 Td (updates, but long wires and breadboards can become unreliable at high speeds.) Tj ET
+BT /F2 12 Tf 54 192.00 Td (`[env]`) Tj ET
+BT /F1 10 Tf 54 169.00 Td (This section contains settings common to all PlatformIO environments.) Tj ET
+BT /F3 8.5 Tf 54 146.00 Td (platform = espressif8266) Tj ET
+BT /F3 8.5 Tf 54 135.00 Td (board = d1_mini) Tj ET
+BT /F3 8.5 Tf 54 124.00 Td (framework = arduino) Tj ET
+BT /F1 10 Tf 54 103.00 Td (These say:) Tj ET
+BT /F1 10 Tf 54 84.00 Td (- Use the ESP8266 platform package.) Tj ET
+BT /F1 10 Tf 54 71.00 Td (- Build for the Wemos/Lolin D1 Mini board profile.) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Length 2754 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (- Use the Arduino framework.) Tj ET
+BT /F3 8.5 Tf 54 715.00 Td (monitor_speed = 115200) Tj ET
+BT /F1 10 Tf 54 694.00 Td (This is the baud rate used by the serial monitor. It must match) Tj ET
+BT /F1 10 Tf 54 681.00 Td (`DEBUG_BAUD` in `include/config.h`.) Tj ET
+BT /F3 8.5 Tf 54 658.00 Td (monitor_filters = esp8266_exception_decoder, default) Tj ET
+BT /F1 10 Tf 54 637.00 Td (The exception decoder makes ESP8266 crash dumps more readable in the serial) Tj ET
+BT /F1 10 Tf 54 624.00 Td (monitor.) Tj ET
+BT /F3 8.5 Tf 54 601.00 Td (upload_speed = 460800) Tj ET
+BT /F3 8.5 Tf 54 590.00 Td (upload_port = COM6) Tj ET
+BT /F1 10 Tf 54 569.00 Td (These configure flashing speed and the Windows serial port.) Tj ET
+BT /F3 8.5 Tf 54 546.00 Td (lib_deps =) Tj ET
+BT /F3 8.5 Tf 54 535.00 Td (    bodmer/TFT_eSPI@^2.5.43) Tj ET
+BT /F1 10 Tf 54 514.00 Td (This declares one library dependency: `TFT_eSPI`, version compatible with) Tj ET
+BT /F1 10 Tf 54 501.00 Td (2.5.43. PlatformIO downloads and builds it automatically.) Tj ET
+BT /F2 12 Tf 54 476.00 Td (`[env:d1_mini]`) Tj ET
+BT /F1 10 Tf 54 453.00 Td (This is the default build environment.) Tj ET
+BT /F3 8.5 Tf 54 430.00 Td ([env:d1_mini]) Tj ET
+BT /F3 8.5 Tf 54 419.00 Td (build_flags =) Tj ET
+BT /F3 8.5 Tf 54 408.00 Td (    ${common.base_flags}) Tj ET
+BT /F3 8.5 Tf 54 397.00 Td (    -DST7789_DRIVER=1) Tj ET
+BT /F3 8.5 Tf 54 386.00 Td (    -DTFT_WIDTH=240) Tj ET
+BT /F3 8.5 Tf 54 375.00 Td (    -DTFT_HEIGHT=320) Tj ET
+BT /F3 8.5 Tf 54 364.00 Td (    -DTFT_INVERSION_OFF=1) Tj ET
+BT /F3 8.5 Tf 54 353.00 Td (    -DTFT_RGB_ORDER=TFT_BGR) Tj ET
+BT /F1 10 Tf 54 332.00 Td (It uses all shared flags, then selects the ST7789 display driver.) Tj ET
+BT /F1 10 Tf 54 313.00 Td (The display is physically 240x320 pixels, but the UI rotates it to landscape,) Tj ET
+BT /F1 10 Tf 54 300.00 Td (so the code draws as 320x240.) Tj ET
+BT /F1 10 Tf 54 281.00 Td (`TFT_INVERSION_OFF` fixes photo-negative-looking colors on this panel.) Tj ET
+BT /F1 10 Tf 54 268.00 Td (`TFT_RGB_ORDER=TFT_BGR` fixes red/blue channel order.) Tj ET
+BT /F2 12 Tf 54 243.00 Td (`[env:d1_mini_ili9341]`) Tj ET
+BT /F1 10 Tf 54 220.00 Td (This fallback environment selects the ILI9341 driver instead:) Tj ET
+BT /F3 8.5 Tf 54 197.00 Td ([env:d1_mini_ili9341]) Tj ET
+BT /F3 8.5 Tf 54 186.00 Td (build_flags =) Tj ET
+BT /F3 8.5 Tf 54 175.00 Td (    ${common.base_flags}) Tj ET
+BT /F3 8.5 Tf 54 164.00 Td (    -DILI9341_DRIVER=1) Tj ET
+BT /F1 10 Tf 54 143.00 Td (Use it only if the screen is genuinely ILI9341.) Tj ET
+BT /F2 14 Tf 54 116.00 Td (4. `include/config.h`) Tj ET
+BT /F1 10 Tf 54 89.00 Td (This header stores shared configuration used by multiple `.cpp` files.) Tj ET
+BT /F1 10 Tf 54 70.00 Td (It starts with:) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Length 3056 >>
+stream
+BT /F3 8.5 Tf 54 728.00 Td (#pragma once) Tj ET
+BT /F3 8.5 Tf 54 717.00 Td (#include <Arduino.h>) Tj ET
+BT /F1 10 Tf 54 696.00 Td (`Arduino.h` provides Arduino types and functions such as `uint32_t`, `HIGH`,) Tj ET
+BT /F1 10 Tf 54 683.00 Td (`LOW`, `pinMode`, `digitalRead`, and `millis`.) Tj ET
+BT /F2 12 Tf 54 658.00 Td (Pin assignments) Tj ET
+BT /F3 8.5 Tf 54 631.00 Td (constexpr int PIN_PMS_RX = 4;) Tj ET
+BT /F3 8.5 Tf 54 620.00 Td (constexpr int PIN_MHZ_RX = 5;) Tj ET
+BT /F3 8.5 Tf 54 609.00 Td (constexpr int PIN_MHZ_TX = 2;) Tj ET
+BT /F3 8.5 Tf 54 598.00 Td (constexpr int PIN_BUTTON = 16;) Tj ET
+BT /F1 10 Tf 54 577.00 Td (These are ESP8266 GPIO numbers, not just the printed D labels. The comments map) Tj ET
+BT /F1 10 Tf 54 564.00 Td (them to D1 Mini labels:) Tj ET
+BT /F1 10 Tf 54 545.00 Td (- `PIN_PMS_RX = 4`: D2 receives data from PMS5003 TXD.) Tj ET
+BT /F1 10 Tf 54 532.00 Td (- `PIN_MHZ_RX = 5`: D1 receives data from MH-Z19E TX.) Tj ET
+BT /F1 10 Tf 54 519.00 Td (- `PIN_MHZ_TX = 2`: D4 sends commands to MH-Z19E RX.) Tj ET
+BT /F1 10 Tf 54 506.00 Td (- `PIN_BUTTON = 16`: D0 reads the screen-toggle button.) Tj ET
+BT /F1 10 Tf 54 487.00 Td (The PMS5003 connection is RX only because this firmware listens to the PMS5003) Tj ET
+BT /F1 10 Tf 54 474.00 Td (in active mode. It does not send commands to it.) Tj ET
+BT /F1 10 Tf 54 455.00 Td (The MH-Z19E needs both RX and TX because the firmware sends a request command) Tj ET
+BT /F1 10 Tf 54 442.00 Td (and waits for a response.) Tj ET
+BT /F1 10 Tf 54 423.00 Td (The button uses GPIO16 / D0 because GPIO16 has an internal pulldown. That means) Tj ET
+BT /F1 10 Tf 54 410.00 Td (the button should connect D0 to 3.3V, and pressed reads as `HIGH`.) Tj ET
+BT /F2 12 Tf 54 385.00 Td (Serial settings) Tj ET
+BT /F3 8.5 Tf 54 358.00 Td (constexpr uint32_t DEBUG_BAUD = 115200;) Tj ET
+BT /F3 8.5 Tf 54 347.00 Td (constexpr uint32_t PMS_BAUD   = 9600;) Tj ET
+BT /F3 8.5 Tf 54 336.00 Td (constexpr uint32_t MHZ_BAUD   = 9600;) Tj ET
+BT /F1 10 Tf 54 315.00 Td (The debug serial port talks to your computer at 115200 baud.) Tj ET
+BT /F1 10 Tf 54 296.00 Td (Both sensors use 9600 baud, fixed by the sensor protocols.) Tj ET
+BT /F2 12 Tf 54 271.00 Td (Timing settings) Tj ET
+BT /F3 8.5 Tf 54 244.00 Td (constexpr uint32_t SAMPLE_INTERVAL_MS = 5000;) Tj ET
+BT /F1 10 Tf 54 223.00 Td (The firmware attempts one full sensor cycle every 5 seconds.) Tj ET
+BT /F3 8.5 Tf 54 200.00 Td (constexpr uint32_t PMS_LISTEN_TIMEOUT_MS = 3500;) Tj ET
+BT /F1 10 Tf 54 179.00 Td (The PMS5003 sends frames periodically, around every 2.3 seconds in stable mode.) Tj ET
+BT /F1 10 Tf 54 166.00 Td (The firmware listens up to 3.5 seconds before giving up for this cycle.) Tj ET
+BT /F3 8.5 Tf 54 143.00 Td (constexpr uint32_t MHZ_RESPONSE_TIMEOUT_MS = 500;) Tj ET
+BT /F1 10 Tf 54 122.00 Td (The MH-Z19E normally replies quickly, around 50 ms. The firmware waits up to) Tj ET
+BT /F1 10 Tf 54 109.00 Td (500 ms before treating the request as failed.) Tj ET
+BT /F3 8.5 Tf 54 86.00 Td (constexpr uint32_t DATA_STALE_MS = 30000;) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Length 2903 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (If a valid reading is older than 30 seconds, the UI treats it as stale and shows) Tj ET
+BT /F1 10 Tf 54 725.00 Td (missing/no-data state.) Tj ET
+BT /F2 12 Tf 54 700.00 Td (Warm-up settings) Tj ET
+BT /F3 8.5 Tf 54 673.00 Td (constexpr uint32_t PMS_WARMUP_MS = 30000;) Tj ET
+BT /F3 8.5 Tf 54 662.00 Td (constexpr uint32_t MHZ_WARMUP_MS = 60000;) Tj ET
+BT /F1 10 Tf 54 641.00 Td (Sensors need time after boot before their readings are reliable. The PMS5003) Tj ET
+BT /F1 10 Tf 54 628.00 Td (gets 30 seconds. The MH-Z19E gets 60 seconds.) Tj ET
+BT /F1 10 Tf 54 609.00 Td (The firmware can still read during warm-up, but the UI will not treat the data) Tj ET
+BT /F1 10 Tf 54 596.00 Td (as valid until the warm-up time has passed.) Tj ET
+BT /F2 12 Tf 54 571.00 Td (MH-Z19E ABC setting) Tj ET
+BT /F3 8.5 Tf 54 544.00 Td (constexpr bool MHZ19_ABC_ENABLED = true;) Tj ET
+BT /F1 10 Tf 54 523.00 Td (ABC means Automatic Baseline Correction. The CO2 sensor assumes it sees fresh) Tj ET
+BT /F1 10 Tf 54 510.00 Td (air, about 400 ppm, at least once per 24 hours and adjusts itself.) Tj ET
+BT /F1 10 Tf 54 491.00 Td (This is good in a normal home or office that gets ventilated. It can be wrong) Tj ET
+BT /F1 10 Tf 54 478.00 Td (for greenhouses or always-occupied spaces that never return to fresh-air CO2) Tj ET
+BT /F1 10 Tf 54 465.00 Td (levels.) Tj ET
+BT /F2 14 Tf 54 438.00 Td (5. `src/aqi.h`) Tj ET
+BT /F1 10 Tf 54 411.00 Td (This header declares the AQI-related functions and types.) Tj ET
+BT /F3 8.5 Tf 54 388.00 Td (enum AqiCategory : uint8_t {) Tj ET
+BT /F3 8.5 Tf 54 377.00 Td (    AQI_GOOD = 0,) Tj ET
+BT /F3 8.5 Tf 54 366.00 Td (    AQI_MODERATE,) Tj ET
+BT /F3 8.5 Tf 54 355.00 Td (    AQI_SENSITIVE,) Tj ET
+BT /F3 8.5 Tf 54 344.00 Td (    AQI_UNHEALTHY,) Tj ET
+BT /F3 8.5 Tf 54 333.00 Td (    AQI_VERY_UNHEALTHY,) Tj ET
+BT /F3 8.5 Tf 54 322.00 Td (    AQI_HAZARDOUS,) Tj ET
+BT /F3 8.5 Tf 54 311.00 Td (};) Tj ET
+BT /F1 10 Tf 54 290.00 Td (An `enum` is a named set of values. In web terms, think of a TypeScript union or) Tj ET
+BT /F1 10 Tf 54 277.00 Td (Python enum. `: uint8_t` means store it as one byte.) Tj ET
+BT /F1 10 Tf 54 258.00 Td (The category values represent the standard AQI bands:) Tj ET
+BT /F1 10 Tf 54 239.00 Td (- Good) Tj ET
+BT /F1 10 Tf 54 226.00 Td (- Moderate) Tj ET
+BT /F1 10 Tf 54 213.00 Td (- Unhealthy for Sensitive Groups) Tj ET
+BT /F1 10 Tf 54 200.00 Td (- Unhealthy) Tj ET
+BT /F1 10 Tf 54 187.00 Td (- Very Unhealthy) Tj ET
+BT /F1 10 Tf 54 174.00 Td (- Hazardous) Tj ET
+BT /F1 10 Tf 54 155.00 Td (These function declarations follow:) Tj ET
+BT /F3 8.5 Tf 54 132.00 Td (int aqiFromPm25\(float ugm3\);) Tj ET
+BT /F3 8.5 Tf 54 121.00 Td (int aqiFromPm10\(float ugm3\);) Tj ET
+BT /F1 10 Tf 54 100.00 Td (They convert PM2.5 or PM10 concentration values into AQI numbers. The return) Tj ET
+BT /F1 10 Tf 54 87.00 Td (value is `-1` if input is invalid.) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Length 2793 >>
+stream
+BT /F3 8.5 Tf 54 738.00 Td (AqiCategory aqiCategory\(int aqi\);) Tj ET
+BT /F1 10 Tf 54 717.00 Td (This converts a numeric AQI such as `73` into a category such as) Tj ET
+BT /F1 10 Tf 54 704.00 Td (`AQI_MODERATE`.) Tj ET
+BT /F3 8.5 Tf 54 681.00 Td (const char* aqiCategoryName\(AqiCategory c\);) Tj ET
+BT /F1 10 Tf 54 660.00 Td (This returns short text for the display, such as `"GOOD"` or `"MODERATE"`.) Tj ET
+BT /F1 10 Tf 54 641.00 Td (`const char*` is a C-style string. In firmware code it is common because it is) Tj ET
+BT /F1 10 Tf 54 628.00 Td (lightweight compared with dynamic string objects.) Tj ET
+BT /F3 8.5 Tf 54 605.00 Td (uint16_t aqiCategoryColor\(AqiCategory c\);) Tj ET
+BT /F1 10 Tf 54 584.00 Td (This returns a 16-bit display color in RGB565 format. RGB565 is a compact color) Tj ET
+BT /F1 10 Tf 54 571.00 Td (format commonly used by small TFT screens.) Tj ET
+BT /F1 10 Tf 54 552.00 Td (The last two declarations are for CO2 display labels and colors:) Tj ET
+BT /F3 8.5 Tf 54 529.00 Td (const char* co2Label\(int ppm\);) Tj ET
+BT /F3 8.5 Tf 54 518.00 Td (uint16_t co2Color\(int ppm\);) Tj ET
+BT /F1 10 Tf 54 497.00 Td (CO2 does not use the EPA AQI scale, so the code uses simple comfort bands.) Tj ET
+BT /F2 14 Tf 54 470.00 Td (6. `src/aqi.cpp`) Tj ET
+BT /F1 10 Tf 54 443.00 Td (This file implements the AQI math and label/color helpers.) Tj ET
+BT /F3 8.5 Tf 54 420.00 Td (#include "aqi.h") Tj ET
+BT /F3 8.5 Tf 54 409.00 Td (#include <TFT_eSPI.h>) Tj ET
+BT /F1 10 Tf 54 388.00 Td (It includes its own header and the display library header. The display header is) Tj ET
+BT /F1 10 Tf 54 375.00 Td (needed for constants such as `TFT_GREEN`, `TFT_YELLOW`, and `TFT_RED`.) Tj ET
+BT /F2 12 Tf 54 350.00 Td (`Breakpoint`) Tj ET
+BT /F1 10 Tf 54 327.00 Td (Inside the anonymous namespace:) Tj ET
+BT /F3 8.5 Tf 54 304.00 Td (struct Breakpoint { float cLo, cHi; int iLo, iHi; };) Tj ET
+BT /F1 10 Tf 54 283.00 Td (Each AQI breakpoint row maps a pollutant concentration range to an AQI index) Tj ET
+BT /F1 10 Tf 54 270.00 Td (range.) Tj ET
+BT /F1 10 Tf 54 251.00 Td (Fields:) Tj ET
+BT /F1 10 Tf 54 232.00 Td (- `cLo`: low concentration.) Tj ET
+BT /F1 10 Tf 54 219.00 Td (- `cHi`: high concentration.) Tj ET
+BT /F1 10 Tf 54 206.00 Td (- `iLo`: low AQI index.) Tj ET
+BT /F1 10 Tf 54 193.00 Td (- `iHi`: high AQI index.) Tj ET
+BT /F1 10 Tf 54 174.00 Td (For example, PM2.5 from 0.0 to 9.0 ug/m3 maps to AQI 0 to 50.) Tj ET
+BT /F2 12 Tf 54 149.00 Td (PM2.5 breakpoints) Tj ET
+BT /F3 8.5 Tf 54 122.00 Td (const Breakpoint PM25_BP[] = {) Tj ET
+BT /F3 8.5 Tf 54 111.00 Td (    {0.0f, 9.0f, 0, 50},) Tj ET
+BT /F3 8.5 Tf 54 100.00 Td (    ...) Tj ET
+BT /F3 8.5 Tf 54 89.00 Td (};) Tj ET
+BT /F1 10 Tf 54 68.00 Td (This array contains the May 2024 revised EPA PM2.5 breakpoints. The `f` suffix) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Length 2724 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (means the number is a `float`, not a `double`.) Tj ET
+BT /F1 10 Tf 54 719.00 Td (This matters on microcontrollers because `float` uses less memory.) Tj ET
+BT /F2 12 Tf 54 694.00 Td (PM10 breakpoints) Tj ET
+BT /F3 8.5 Tf 54 667.00 Td (const Breakpoint PM10_BP[] = {) Tj ET
+BT /F3 8.5 Tf 54 656.00 Td (    {0.0f, 54.0f, 0, 50},) Tj ET
+BT /F3 8.5 Tf 54 645.00 Td (    ...) Tj ET
+BT /F3 8.5 Tf 54 634.00 Td (};) Tj ET
+BT /F1 10 Tf 54 613.00 Td (This is the PM10 equivalent table.) Tj ET
+BT /F2 12 Tf 54 588.00 Td (`interpolate`) Tj ET
+BT /F3 8.5 Tf 54 561.00 Td (int interpolate\(const Breakpoint* table, size_t n, float c\)) Tj ET
+BT /F1 10 Tf 54 540.00 Td (This helper takes:) Tj ET
+BT /F1 10 Tf 54 521.00 Td (- `table`: pointer to a breakpoint array.) Tj ET
+BT /F1 10 Tf 54 508.00 Td (- `n`: number of rows in the table.) Tj ET
+BT /F1 10 Tf 54 495.00 Td (- `c`: concentration value.) Tj ET
+BT /F1 10 Tf 54 476.00 Td (If `c < 0`, it returns `-1`, meaning invalid input.) Tj ET
+BT /F1 10 Tf 54 457.00 Td (Then it loops through the table:) Tj ET
+BT /F3 8.5 Tf 54 434.00 Td (for \(size_t i = 0; i < n; i++\) {) Tj ET
+BT /F3 8.5 Tf 54 423.00 Td (    const Breakpoint& b = table[i];) Tj ET
+BT /F3 8.5 Tf 54 412.00 Td (    if \(c <= b.cHi\) {) Tj ET
+BT /F3 8.5 Tf 54 401.00 Td (        ...) Tj ET
+BT /F3 8.5 Tf 54 390.00 Td (    }) Tj ET
+BT /F3 8.5 Tf 54 379.00 Td (}) Tj ET
+BT /F1 10 Tf 54 358.00 Td (`size_t` is an unsigned integer type used for sizes and array indexes.) Tj ET
+BT /F1 10 Tf 54 339.00 Td (`const Breakpoint& b = table[i];` creates a read-only reference to the current) Tj ET
+BT /F1 10 Tf 54 326.00 Td (breakpoint row. It avoids copying the struct.) Tj ET
+BT /F1 10 Tf 54 307.00 Td (The interpolation formula is:) Tj ET
+BT /F3 8.5 Tf 54 284.00 Td (float aqi = \(float\)\(b.iHi - b.iLo\) / \(b.cHi - b.cLo\) * \(c - b.cLo\) + b.iLo;) Tj ET
+BT /F1 10 Tf 54 263.00 Td (This is a linear mapping from concentration range to AQI range.) Tj ET
+BT /F1 10 Tf 54 244.00 Td (In Python-like pseudocode:) Tj ET
+BT /F3 8.5 Tf 54 221.00 Td (aqi = \(\(i_hi - i_lo\) / \(c_hi - c_lo\)\) * \(c - c_lo\) + i_lo) Tj ET
+BT /F1 10 Tf 54 200.00 Td (Then:) Tj ET
+BT /F3 8.5 Tf 54 177.00 Td (return \(int\)\(aqi + 0.5f\);) Tj ET
+BT /F1 10 Tf 54 156.00 Td (This rounds to the nearest integer by adding 0.5 and truncating.) Tj ET
+BT /F1 10 Tf 54 137.00 Td (If the concentration is above the last breakpoint, the function returns 500.) Tj ET
+BT /F2 12 Tf 54 112.00 Td (AQI conversion functions) Tj ET
+BT /F3 8.5 Tf 54 85.00 Td (int aqiFromPm25\(float ugm3\) { return interpolate\(PM25_BP, 6, ugm3\); }) Tj ET
+BT /F3 8.5 Tf 54 74.00 Td (int aqiFromPm10\(float ugm3\) { return interpolate\(PM10_BP, 6, ugm3\); }) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Length 2440 >>
+stream
+BT /F1 10 Tf 54 732.00 Td (These are small wrappers around `interpolate`.) Tj ET
+BT /F1 10 Tf 54 713.00 Td (The `6` is the number of breakpoint rows in each table.) Tj ET
+BT /F2 12 Tf 54 688.00 Td (`aqiCategory`) Tj ET
+BT /F3 8.5 Tf 54 661.00 Td (AqiCategory aqiCategory\(int aqi\)) Tj ET
+BT /F1 10 Tf 54 640.00 Td (This converts a number to a category using standard AQI thresholds:) Tj ET
+BT /F1 10 Tf 54 621.00 Td (- 0-50: good) Tj ET
+BT /F1 10 Tf 54 608.00 Td (- 51-100: moderate) Tj ET
+BT /F1 10 Tf 54 595.00 Td (- 101-150: sensitive) Tj ET
+BT /F1 10 Tf 54 582.00 Td (- 151-200: unhealthy) Tj ET
+BT /F1 10 Tf 54 569.00 Td (- 201-300: very unhealthy) Tj ET
+BT /F1 10 Tf 54 556.00 Td (- 301+: hazardous) Tj ET
+BT /F1 10 Tf 54 537.00 Td (One detail: if `aqi` is negative, it is also `<= 50`, so this function would) Tj ET
+BT /F1 10 Tf 54 524.00 Td (return `AQI_GOOD`. The calling code only calls it for valid AQI values, so that) Tj ET
+BT /F1 10 Tf 54 511.00 Td (is acceptable in this project.) Tj ET
+BT /F2 12 Tf 54 486.00 Td (`aqiCategoryName`) Tj ET
+BT /F1 10 Tf 54 463.00 Td (This `switch` returns display text for each category.) Tj ET
+BT /F3 8.5 Tf 54 440.00 Td (case AQI_GOOD: return "GOOD";) Tj ET
+BT /F1 10 Tf 54 419.00 Td (The default returns `"HAZARDOUS"`. That covers both `AQI_HAZARDOUS` and any) Tj ET
+BT /F1 10 Tf 54 406.00 Td (unexpected enum value.) Tj ET
+BT /F2 12 Tf 54 381.00 Td (`aqiCategoryColor`) Tj ET
+BT /F1 10 Tf 54 358.00 Td (This maps categories to TFT colors:) Tj ET
+BT /F1 10 Tf 54 339.00 Td (- Good: green) Tj ET
+BT /F1 10 Tf 54 326.00 Td (- Moderate: yellow) Tj ET
+BT /F1 10 Tf 54 313.00 Td (- Sensitive: orange) Tj ET
+BT /F1 10 Tf 54 300.00 Td (- Unhealthy: red) Tj ET
+BT /F1 10 Tf 54 287.00 Td (- Very unhealthy: purple) Tj ET
+BT /F1 10 Tf 54 274.00 Td (- Hazardous: maroon) Tj ET
+BT /F2 12 Tf 54 249.00 Td (CO2 helpers) Tj ET
+BT /F3 8.5 Tf 54 222.00 Td (const char* co2Label\(int ppm\)) Tj ET
+BT /F1 10 Tf 54 201.00 Td (CO2 bands:) Tj ET
+BT /F1 10 Tf 54 182.00 Td (- Below 800 ppm: `FRESH`) Tj ET
+BT /F1 10 Tf 54 169.00 Td (- 800-1199 ppm: `OK`) Tj ET
+BT /F1 10 Tf 54 156.00 Td (- 1200-1999 ppm: `STUFFY`) Tj ET
+BT /F1 10 Tf 54 143.00 Td (- 2000+ ppm: `BAD`) Tj ET
+BT /F1 10 Tf 54 124.00 Td (`co2Color` uses the same thresholds and returns green, yellow, orange, or red.) Tj ET
+BT /F2 14 Tf 54 97.00 Td (7. `src/pms5003.h`) Tj ET
+BT /F1 10 Tf 54 70.00 Td (This header declares the PMS5003 driver.) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Length 2971 >>
+stream
+BT /F1 10 Tf 54 732.00 Td (The PMS5003 sends binary frames over UART. A frame is 32 bytes:) Tj ET
+BT /F3 8.5 Tf 54 709.00 Td (0x42 0x4D + length + 13 data words + checksum) Tj ET
+BT /F1 10 Tf 54 688.00 Td (UART is serial communication. You can think of it as a byte stream, similar to) Tj ET
+BT /F1 10 Tf 54 675.00 Td (reading bytes from a socket.) Tj ET
+BT /F2 12 Tf 54 650.00 Td (`PmsData`) Tj ET
+BT /F3 8.5 Tf 54 623.00 Td (struct PmsData {) Tj ET
+BT /F3 8.5 Tf 54 612.00 Td (    uint16_t pm1_std, pm25_std, pm10_std;) Tj ET
+BT /F3 8.5 Tf 54 601.00 Td (    uint16_t pm1_atm, pm25_atm, pm10_atm;) Tj ET
+BT /F3 8.5 Tf 54 590.00 Td (    uint16_t n03, n05, n10, n25, n50, n100;) Tj ET
+BT /F3 8.5 Tf 54 579.00 Td (};) Tj ET
+BT /F1 10 Tf 54 558.00 Td (This struct stores the parsed sensor reading.) Tj ET
+BT /F1 10 Tf 54 539.00 Td (The first three values are `"CF=1"` factory-standard particle values.) Tj ET
+BT /F1 10 Tf 54 520.00 Td (The next three are atmospheric-environment values. The firmware uses these for) Tj ET
+BT /F1 10 Tf 54 507.00 Td (AQI because they are intended for real ambient air measurements.) Tj ET
+BT /F1 10 Tf 54 488.00 Td (The final six are particle counts per 0.1 liter of air:) Tj ET
+BT /F1 10 Tf 54 469.00 Td (- `n03`: particles larger than 0.3 micrometers.) Tj ET
+BT /F1 10 Tf 54 456.00 Td (- `n05`: particles larger than 0.5 micrometers.) Tj ET
+BT /F1 10 Tf 54 443.00 Td (- `n10`: particles larger than 1.0 micrometers.) Tj ET
+BT /F1 10 Tf 54 430.00 Td (- `n25`: particles larger than 2.5 micrometers.) Tj ET
+BT /F1 10 Tf 54 417.00 Td (- `n50`: particles larger than 5.0 micrometers.) Tj ET
+BT /F1 10 Tf 54 404.00 Td (- `n100`: particles larger than 10 micrometers.) Tj ET
+BT /F2 12 Tf 54 379.00 Td (`class Pms5003`) Tj ET
+BT /F3 8.5 Tf 54 352.00 Td (explicit Pms5003\(Stream& serial\) : _ser\(serial\) {}) Tj ET
+BT /F1 10 Tf 54 331.00 Td (This is the constructor. It receives a serial stream and stores it in `_ser`.) Tj ET
+BT /F1 10 Tf 54 312.00 Td (`explicit` prevents accidental conversions. It is a C++ safety habit.) Tj ET
+BT /F3 8.5 Tf 54 289.00 Td (void reset\(\) { _idx = 0; }) Tj ET
+BT /F1 10 Tf 54 268.00 Td (This discards any half-read frame by resetting the buffer index.) Tj ET
+BT /F3 8.5 Tf 54 245.00 Td (bool poll\(\);) Tj ET
+BT /F1 10 Tf 54 224.00 Td (This is the main parser function. It reads any bytes currently available. It) Tj ET
+BT /F1 10 Tf 54 211.00 Td (returns `true` when a complete valid frame was parsed.) Tj ET
+BT /F3 8.5 Tf 54 188.00 Td (const PmsData& data\(\) const { return _data; }) Tj ET
+BT /F1 10 Tf 54 167.00 Td (This returns the latest parsed data by read-only reference.) Tj ET
+BT /F1 10 Tf 54 148.00 Td (The private fields are:) Tj ET
+BT /F3 8.5 Tf 54 125.00 Td (Stream& _ser;) Tj ET
+BT /F3 8.5 Tf 54 114.00 Td (uint8_t _buf[32];) Tj ET
+BT /F3 8.5 Tf 54 103.00 Td (uint8_t _idx = 0;) Tj ET
+BT /F3 8.5 Tf 54 92.00 Td (PmsData _data{};) Tj ET
+BT /F1 10 Tf 54 71.00 Td (- `_ser`: the serial stream.) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Length 2620 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (- `_buf`: 32-byte receive buffer.) Tj ET
+BT /F1 10 Tf 54 725.00 Td (- `_idx`: current write position in the buffer.) Tj ET
+BT /F1 10 Tf 54 712.00 Td (- `_data`: latest valid parsed reading.) Tj ET
+BT /F1 10 Tf 54 693.00 Td (The underscore prefix is a common C++ convention for private member variables.) Tj ET
+BT /F2 14 Tf 54 666.00 Td (8. `src/pms5003.cpp`) Tj ET
+BT /F1 10 Tf 54 639.00 Td (This file implements the PMS5003 parser.) Tj ET
+BT /F2 12 Tf 54 614.00 Td (Constants) Tj ET
+BT /F3 8.5 Tf 54 587.00 Td (constexpr uint8_t START1 = 0x42;) Tj ET
+BT /F3 8.5 Tf 54 576.00 Td (constexpr uint8_t START2 = 0x4D;) Tj ET
+BT /F3 8.5 Tf 54 565.00 Td (constexpr uint8_t FRAME_LEN = 32;) Tj ET
+BT /F3 8.5 Tf 54 554.00 Td (constexpr uint16_t PAYLOAD_LEN = 28;) Tj ET
+BT /F1 10 Tf 54 533.00 Td (PMS5003 frames begin with two fixed bytes: hex `42 4D`. The full frame is 32) Tj ET
+BT /F1 10 Tf 54 520.00 Td (bytes. The payload length field should say 28.) Tj ET
+BT /F1 10 Tf 54 501.00 Td (Hex numbers start with `0x`. For example, `0x42` is decimal 66.) Tj ET
+BT /F2 12 Tf 54 476.00 Td (`word16`) Tj ET
+BT /F3 8.5 Tf 54 449.00 Td (uint16_t word16\(const uint8_t* p\) { return \(uint16_t\)p[0] << 8 | p[1]; }) Tj ET
+BT /F1 10 Tf 54 428.00 Td (The sensor sends 16-bit numbers as two bytes, high byte first. This function) Tj ET
+BT /F1 10 Tf 54 415.00 Td (combines two bytes into one `uint16_t`.) Tj ET
+BT /F1 10 Tf 54 396.00 Td (Example:) Tj ET
+BT /F3 8.5 Tf 54 373.00 Td (bytes: 0x01 0xF4) Tj ET
+BT /F3 8.5 Tf 54 362.00 Td (value: 500) Tj ET
+BT /F1 10 Tf 54 341.00 Td (The expression shifts the first byte left by 8 bits, then ORs in the second) Tj ET
+BT /F1 10 Tf 54 328.00 Td (byte.) Tj ET
+BT /F2 12 Tf 54 303.00 Td (`Pms5003::poll`) Tj ET
+BT /F1 10 Tf 54 280.00 Td (`Pms5003::poll` means "the `poll` method that belongs to the `Pms5003` class".) Tj ET
+BT /F3 8.5 Tf 54 257.00 Td (bool gotFrame = false;) Tj ET
+BT /F1 10 Tf 54 236.00 Td (The function starts assuming no valid frame was found.) Tj ET
+BT /F3 8.5 Tf 54 213.00 Td (while \(_ser.available\(\)\) {) Tj ET
+BT /F1 10 Tf 54 192.00 Td (This loops while there are bytes waiting in the serial receive buffer.) Tj ET
+BT /F3 8.5 Tf 54 169.00 Td (uint8_t b = \(uint8_t\)_ser.read\(\);) Tj ET
+BT /F1 10 Tf 54 148.00 Td (Read one byte. `_ser.read\(\)` returns an integer, so it is cast to `uint8_t`.) Tj ET
+BT /F2 12 Tf 54 123.00 Td (Frame synchronization) Tj ET
+BT /F3 8.5 Tf 54 96.00 Td (if \(_idx == 0 && b != START1\) continue;) Tj ET
+BT /F1 10 Tf 54 75.00 Td (If the parser is waiting for the first byte and this byte is not `0x42`, ignore) Tj ET
+endstream
+endobj
+17 0 obj
+<< /Length 2647 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (it.) Tj ET
+BT /F3 8.5 Tf 54 715.00 Td (if \(_idx == 1 && b != START2\) { _idx = \(b == START1\) ? 1 : 0; continue; }) Tj ET
+BT /F1 10 Tf 54 694.00 Td (If the parser got the first start byte but the second byte is wrong, it) Tj ET
+BT /F1 10 Tf 54 681.00 Td (resynchronizes.) Tj ET
+BT /F1 10 Tf 54 662.00 Td (The ternary expression:) Tj ET
+BT /F3 8.5 Tf 54 639.00 Td (\(b == START1\) ? 1 : 0) Tj ET
+BT /F1 10 Tf 54 618.00 Td (means "if `b` is another possible first start byte, keep `_idx` at 1; otherwise) Tj ET
+BT /F1 10 Tf 54 605.00 Td (reset to 0".) Tj ET
+BT /F1 10 Tf 54 586.00 Td (This prevents missing a frame if the stream contains `42 42 4D`.) Tj ET
+BT /F2 12 Tf 54 561.00 Td (Buffer fill) Tj ET
+BT /F3 8.5 Tf 54 534.00 Td (_buf[_idx++] = b;) Tj ET
+BT /F3 8.5 Tf 54 523.00 Td (if \(_idx < FRAME_LEN\) continue;) Tj ET
+BT /F1 10 Tf 54 502.00 Td (Store the byte, then increment `_idx`. If the frame is not complete yet, keep) Tj ET
+BT /F1 10 Tf 54 489.00 Td (reading.) Tj ET
+BT /F1 10 Tf 54 470.00 Td (Once 32 bytes are collected:) Tj ET
+BT /F3 8.5 Tf 54 447.00 Td (_idx = 0;) Tj ET
+BT /F1 10 Tf 54 426.00 Td (Reset for the next frame.) Tj ET
+BT /F2 12 Tf 54 401.00 Td (Length check) Tj ET
+BT /F3 8.5 Tf 54 374.00 Td (if \(word16\(_buf + 2\) != PAYLOAD_LEN\) continue;) Tj ET
+BT /F1 10 Tf 54 353.00 Td (`_buf + 2` is pointer arithmetic. It means "start reading at byte index 2".) Tj ET
+BT /F1 10 Tf 54 340.00 Td (Bytes 2 and 3 contain the frame payload length.) Tj ET
+BT /F1 10 Tf 54 321.00 Td (If the length is not 28, the frame is rejected.) Tj ET
+BT /F2 12 Tf 54 296.00 Td (Checksum check) Tj ET
+BT /F3 8.5 Tf 54 269.00 Td (uint16_t sum = 0;) Tj ET
+BT /F3 8.5 Tf 54 258.00 Td (for \(uint8_t i = 0; i < FRAME_LEN - 2; i++\) sum += _buf[i];) Tj ET
+BT /F3 8.5 Tf 54 247.00 Td (if \(sum != word16\(_buf + 30\)\) continue;) Tj ET
+BT /F1 10 Tf 54 226.00 Td (The PMS5003 checksum is the sum of the first 30 bytes. The last two bytes store) Tj ET
+BT /F1 10 Tf 54 213.00 Td (the expected checksum. If they do not match, the frame is corrupt and ignored.) Tj ET
+BT /F2 12 Tf 54 188.00 Td (Data extraction) Tj ET
+BT /F1 10 Tf 54 165.00 Td (The parser then maps byte positions into struct fields:) Tj ET
+BT /F3 8.5 Tf 54 142.00 Td (_data.pm1_std  = word16\(_buf + 4\);) Tj ET
+BT /F3 8.5 Tf 54 131.00 Td (_data.pm25_std = word16\(_buf + 6\);) Tj ET
+BT /F3 8.5 Tf 54 120.00 Td (...) Tj ET
+BT /F3 8.5 Tf 54 109.00 Td (_data.n100 = word16\(_buf + 26\);) Tj ET
+BT /F1 10 Tf 54 88.00 Td (Each sensor value is two bytes. The offsets come from the PMS5003 datasheet.) Tj ET
+BT /F1 10 Tf 54 69.00 Td (After storing all values:) Tj ET
+endstream
+endobj
+18 0 obj
+<< /Length 2753 >>
+stream
+BT /F3 8.5 Tf 54 728.00 Td (gotFrame = true;) Tj ET
+BT /F1 10 Tf 54 707.00 Td (At the end, the function returns whether any valid frame was parsed.) Tj ET
+BT /F2 14 Tf 54 680.00 Td (9. `src/mhz19.h`) Tj ET
+BT /F1 10 Tf 54 653.00 Td (This header declares the MH-Z19E CO2 sensor driver.) Tj ET
+BT /F1 10 Tf 54 634.00 Td (The MH-Z19 family uses 9-byte command and response frames:) Tj ET
+BT /F3 8.5 Tf 54 611.00 Td (0xFF 0x01 CMD D0 D1 D2 D3 D4 CHECKSUM) Tj ET
+BT /F1 10 Tf 54 590.00 Td (The important commands are:) Tj ET
+BT /F1 10 Tf 54 571.00 Td (- `0x86`: read CO2 concentration.) Tj ET
+BT /F1 10 Tf 54 558.00 Td (- `0x79`: turn ABC auto-calibration on/off.) Tj ET
+BT /F1 10 Tf 54 545.00 Td (- `0x87`: zero-point calibration.) Tj ET
+BT /F2 12 Tf 54 520.00 Td (`class Mhz19`) Tj ET
+BT /F1 10 Tf 54 497.00 Td (The constructor is:) Tj ET
+BT /F3 8.5 Tf 54 474.00 Td (explicit Mhz19\(Stream& serial\) : _ser\(serial\) {}) Tj ET
+BT /F1 10 Tf 54 453.00 Td (Like the PMS driver, this receives an Arduino stream and stores it.) Tj ET
+BT /F1 10 Tf 54 434.00 Td (Public methods:) Tj ET
+BT /F3 8.5 Tf 54 411.00 Td (void requestReading\(\);) Tj ET
+BT /F3 8.5 Tf 54 400.00 Td (bool poll\(\);) Tj ET
+BT /F3 8.5 Tf 54 389.00 Td (void setAutoCalibration\(bool enabled\);) Tj ET
+BT /F3 8.5 Tf 54 378.00 Td (void calibrateZero\(\);) Tj ET
+BT /F3 8.5 Tf 54 367.00 Td (int ppm\(\) const;) Tj ET
+BT /F3 8.5 Tf 54 356.00 Td (int temperature\(\) const;) Tj ET
+BT /F1 10 Tf 54 335.00 Td (- `requestReading`: send a command asking for a CO2 reading.) Tj ET
+BT /F1 10 Tf 54 322.00 Td (- `poll`: read bytes until a valid response is found.) Tj ET
+BT /F1 10 Tf 54 309.00 Td (- `setAutoCalibration`: enable/disable ABC.) Tj ET
+BT /F1 10 Tf 54 296.00 Td (- `calibrateZero`: tell the sensor the current air should be treated as 400) Tj ET
+BT /F1 10 Tf 54 283.00 Td (  ppm. The comments correctly warn this should only be done after sufficient) Tj ET
+BT /F1 10 Tf 54 270.00 Td (  fresh-air exposure.) Tj ET
+BT /F1 10 Tf 54 257.00 Td (- `ppm`: latest valid CO2 reading.) Tj ET
+BT /F1 10 Tf 54 244.00 Td (- `temperature`: rough internal sensor temperature.) Tj ET
+BT /F1 10 Tf 54 225.00 Td (Private methods and fields:) Tj ET
+BT /F3 8.5 Tf 54 202.00 Td (void sendCommand\(uint8_t cmd, uint8_t d0 = 0\);) Tj ET
+BT /F3 8.5 Tf 54 191.00 Td (Stream& _ser;) Tj ET
+BT /F3 8.5 Tf 54 180.00 Td (uint8_t _buf[9];) Tj ET
+BT /F3 8.5 Tf 54 169.00 Td (uint8_t _idx = 0;) Tj ET
+BT /F3 8.5 Tf 54 158.00 Td (int _ppm = -1;) Tj ET
+BT /F3 8.5 Tf 54 147.00 Td (int _temp = 0;) Tj ET
+BT /F1 10 Tf 54 126.00 Td (`d0 = 0` is a default parameter. If the caller does not pass the second) Tj ET
+BT /F1 10 Tf 54 113.00 Td (argument, it defaults to zero.) Tj ET
+BT /F2 14 Tf 54 86.00 Td (10. `src/mhz19.cpp`) Tj ET
+endstream
+endobj
+19 0 obj
+<< /Length 2790 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (This file implements MH-Z19E commands and response parsing.) Tj ET
+BT /F2 12 Tf 54 713.00 Td (Command constants) Tj ET
+BT /F3 8.5 Tf 54 686.00 Td (constexpr uint8_t CMD_READ_CO2  = 0x86;) Tj ET
+BT /F3 8.5 Tf 54 675.00 Td (constexpr uint8_t CMD_ABC       = 0x79;) Tj ET
+BT /F3 8.5 Tf 54 664.00 Td (constexpr uint8_t CMD_ZERO_CAL  = 0x87;) Tj ET
+BT /F1 10 Tf 54 643.00 Td (These are protocol command bytes.) Tj ET
+BT /F2 12 Tf 54 618.00 Td (Checksum function) Tj ET
+BT /F3 8.5 Tf 54 591.00 Td (uint8_t checksum\(const uint8_t* frame\) {) Tj ET
+BT /F3 8.5 Tf 54 580.00 Td (    uint8_t sum = 0;) Tj ET
+BT /F3 8.5 Tf 54 569.00 Td (    for \(uint8_t i = 1; i < 8; i++\) sum += frame[i];) Tj ET
+BT /F3 8.5 Tf 54 558.00 Td (    return \(uint8_t\)\(0xFF - sum + 1\);) Tj ET
+BT /F3 8.5 Tf 54 547.00 Td (}) Tj ET
+BT /F1 10 Tf 54 526.00 Td (The MH-Z19 checksum sums bytes 1 through 7, subtracts from `0xFF`, then adds 1.) Tj ET
+BT /F1 10 Tf 54 513.00 Td (This produces the final checksum byte.) Tj ET
+BT /F2 12 Tf 54 488.00 Td (Sending commands) Tj ET
+BT /F3 8.5 Tf 54 461.00 Td (void Mhz19::sendCommand\(uint8_t cmd, uint8_t d0\) {) Tj ET
+BT /F3 8.5 Tf 54 450.00 Td (    uint8_t frame[9] = {0xFF, 0x01, cmd, d0, 0, 0, 0, 0, 0};) Tj ET
+BT /F3 8.5 Tf 54 439.00 Td (    frame[8] = checksum\(frame\);) Tj ET
+BT /F3 8.5 Tf 54 428.00 Td (    _ser.write\(frame, sizeof\(frame\)\);) Tj ET
+BT /F3 8.5 Tf 54 417.00 Td (}) Tj ET
+BT /F1 10 Tf 54 396.00 Td (This builds a 9-byte command frame.) Tj ET
+BT /F1 10 Tf 54 377.00 Td (`sizeof\(frame\)` returns 9 because `frame` is a local array of 9 bytes.) Tj ET
+BT /F1 10 Tf 54 358.00 Td (`_ser.write\(frame, sizeof\(frame\)\)` writes the whole byte array to the sensor.) Tj ET
+BT /F2 12 Tf 54 333.00 Td (Requesting a CO2 reading) Tj ET
+BT /F3 8.5 Tf 54 306.00 Td (void Mhz19::requestReading\(\) {) Tj ET
+BT /F3 8.5 Tf 54 295.00 Td (    _idx = 0;) Tj ET
+BT /F3 8.5 Tf 54 284.00 Td (    sendCommand\(CMD_READ_CO2\);) Tj ET
+BT /F3 8.5 Tf 54 273.00 Td (}) Tj ET
+BT /F1 10 Tf 54 252.00 Td (Reset the receive buffer index, then send the read command.) Tj ET
+BT /F2 12 Tf 54 227.00 Td (ABC and zero calibration) Tj ET
+BT /F3 8.5 Tf 54 200.00 Td (void Mhz19::setAutoCalibration\(bool enabled\) {) Tj ET
+BT /F3 8.5 Tf 54 189.00 Td (    sendCommand\(CMD_ABC, enabled ? 0xA0 : 0x00\);) Tj ET
+BT /F3 8.5 Tf 54 178.00 Td (}) Tj ET
+BT /F1 10 Tf 54 157.00 Td (If `enabled` is true, send `0xA0`; otherwise send `0x00`.) Tj ET
+BT /F3 8.5 Tf 54 134.00 Td (void Mhz19::calibrateZero\(\) {) Tj ET
+BT /F3 8.5 Tf 54 123.00 Td (    sendCommand\(CMD_ZERO_CAL\);) Tj ET
+BT /F3 8.5 Tf 54 112.00 Td (}) Tj ET
+BT /F1 10 Tf 54 91.00 Td (This sends the zero calibration command. It exists but is not called by normal) Tj ET
+BT /F1 10 Tf 54 78.00 Td (runtime code.) Tj ET
+endstream
+endobj
+20 0 obj
+<< /Length 2642 >>
+stream
+BT /F2 12 Tf 54 732.00 Td (Polling responses) Tj ET
+BT /F1 10 Tf 54 709.00 Td (The parser reads bytes while available:) Tj ET
+BT /F3 8.5 Tf 54 686.00 Td (while \(_ser.available\(\)\) {) Tj ET
+BT /F3 8.5 Tf 54 675.00 Td (    uint8_t b = \(uint8_t\)_ser.read\(\);) Tj ET
+BT /F1 10 Tf 54 654.00 Td (It synchronizes on the response start:) Tj ET
+BT /F3 8.5 Tf 54 631.00 Td (if \(_idx == 0 && b != 0xFF\) continue;) Tj ET
+BT /F3 8.5 Tf 54 620.00 Td (if \(_idx == 1 && b != CMD_READ_CO2\) { _idx = \(b == 0xFF\) ? 1 : 0; continue; }) Tj ET
+BT /F1 10 Tf 54 599.00 Td (For a read response, byte 0 should be `0xFF` and byte 1 should be `0x86`.) Tj ET
+BT /F1 10 Tf 54 580.00 Td (It fills the 9-byte buffer:) Tj ET
+BT /F3 8.5 Tf 54 557.00 Td (_buf[_idx++] = b;) Tj ET
+BT /F3 8.5 Tf 54 546.00 Td (if \(_idx < 9\) continue;) Tj ET
+BT /F3 8.5 Tf 54 535.00 Td (_idx = 0;) Tj ET
+BT /F1 10 Tf 54 514.00 Td (It validates the checksum:) Tj ET
+BT /F3 8.5 Tf 54 491.00 Td (if \(checksum\(_buf\) != _buf[8]\) continue;) Tj ET
+BT /F1 10 Tf 54 470.00 Td (Then extracts:) Tj ET
+BT /F3 8.5 Tf 54 447.00 Td (_ppm  = \(int\)_buf[2] << 8 | _buf[3];) Tj ET
+BT /F3 8.5 Tf 54 436.00 Td (_temp = \(int\)_buf[4] - 40;) Tj ET
+BT /F1 10 Tf 54 415.00 Td (CO2 ppm is stored in bytes 2 and 3 as a 16-bit value. Temperature is byte 4) Tj ET
+BT /F1 10 Tf 54 402.00 Td (minus 40, per sensor protocol.) Tj ET
+BT /F1 10 Tf 54 383.00 Td (Finally it sets `gotFrame = true` and returns it.) Tj ET
+BT /F2 14 Tf 54 356.00 Td (11. `src/ui.h`) Tj ET
+BT /F1 10 Tf 54 329.00 Td (This header declares what the display module needs and exposes.) Tj ET
+BT /F2 12 Tf 54 304.00 Td (`UiModel`) Tj ET
+BT /F1 10 Tf 54 281.00 Td (`UiModel` is a data object. `main.cpp` fills it with current sensor state, then) Tj ET
+BT /F1 10 Tf 54 268.00 Td (passes it to the UI.) Tj ET
+BT /F1 10 Tf 54 249.00 Td (This separation is good design: sensor code does not need to know drawing) Tj ET
+BT /F1 10 Tf 54 236.00 Td (details, and UI code does not need to know serial protocols.) Tj ET
+BT /F1 10 Tf 54 217.00 Td (Fields:) Tj ET
+BT /F3 8.5 Tf 54 194.00 Td (bool pmValid = false;) Tj ET
+BT /F3 8.5 Tf 54 183.00 Td (bool co2Valid = false;) Tj ET
+BT /F3 8.5 Tf 54 172.00 Td (bool pmWarmup = true;) Tj ET
+BT /F3 8.5 Tf 54 161.00 Td (bool co2Warmup = true;) Tj ET
+BT /F1 10 Tf 54 140.00 Td (These booleans tell the UI whether each sensor is usable or still warming up.) Tj ET
+BT /F3 8.5 Tf 54 117.00 Td (uint16_t pm1 = 0, pm25 = 0, pm10 = 0;) Tj ET
+BT /F1 10 Tf 54 96.00 Td (Particulate matter mass concentrations, atmospheric values, in ug/m3.) Tj ET
+BT /F3 8.5 Tf 54 73.00 Td (uint16_t n03 = 0, n05 = 0, n10 = 0;) Tj ET
+endstream
+endobj
+21 0 obj
+<< /Length 2496 >>
+stream
+BT /F3 8.5 Tf 54 738.00 Td (uint16_t n25 = 0, n50 = 0, n100 = 0;) Tj ET
+BT /F1 10 Tf 54 717.00 Td (Particle counts by size bucket.) Tj ET
+BT /F3 8.5 Tf 54 694.00 Td (int co2 = -1;) Tj ET
+BT /F3 8.5 Tf 54 683.00 Td (int temp = 0;) Tj ET
+BT /F1 10 Tf 54 662.00 Td (CO2 ppm and rough sensor temperature.) Tj ET
+BT /F3 8.5 Tf 54 639.00 Td (int aqi = -1;) Tj ET
+BT /F3 8.5 Tf 54 628.00 Td (int aqiPm25 = -1, aqiPm10 = -1;) Tj ET
+BT /F1 10 Tf 54 607.00 Td (Combined AQI and sub-index AQIs. The combined AQI is the worse of PM2.5 and) Tj ET
+BT /F1 10 Tf 54 594.00 Td (PM10.) Tj ET
+BT /F3 8.5 Tf 54 571.00 Td (uint32_t uptimeS = 0;) Tj ET
+BT /F1 10 Tf 54 550.00 Td (Device uptime in seconds.) Tj ET
+BT /F2 12 Tf 54 525.00 Td (UI functions) Tj ET
+BT /F3 8.5 Tf 54 498.00 Td (void uiBegin\(\);) Tj ET
+BT /F3 8.5 Tf 54 487.00 Td (void uiSetModel\(const UiModel& m\);) Tj ET
+BT /F3 8.5 Tf 54 476.00 Td (void uiToggleScreen\(\);) Tj ET
+BT /F1 10 Tf 54 455.00 Td (- `uiBegin`: initialize the TFT screen.) Tj ET
+BT /F1 10 Tf 54 442.00 Td (- `uiSetModel`: store a new UI model and redraw the current screen.) Tj ET
+BT /F1 10 Tf 54 429.00 Td (- `uiToggleScreen`: switch between dashboard and details screens.) Tj ET
+BT /F2 14 Tf 54 402.00 Td (12. `src/ui.cpp`) Tj ET
+BT /F1 10 Tf 54 375.00 Td (This file owns the display and all drawing code.) Tj ET
+BT /F3 8.5 Tf 54 352.00 Td (#include "ui.h") Tj ET
+BT /F3 8.5 Tf 54 341.00 Td (#include <TFT_eSPI.h>) Tj ET
+BT /F3 8.5 Tf 54 330.00 Td (#include "aqi.h") Tj ET
+BT /F1 10 Tf 54 309.00 Td (It includes its public header, the TFT library, and AQI helpers.) Tj ET
+BT /F2 12 Tf 54 284.00 Td (Private module state) Tj ET
+BT /F1 10 Tf 54 261.00 Td (Inside the anonymous namespace:) Tj ET
+BT /F3 8.5 Tf 54 238.00 Td (TFT_eSPI tft;) Tj ET
+BT /F1 10 Tf 54 217.00 Td (This creates the display object.) Tj ET
+BT /F3 8.5 Tf 54 194.00 Td (enum class Screen : uint8_t { DASHBOARD, DETAILS };) Tj ET
+BT /F3 8.5 Tf 54 183.00 Td (Screen screen = Screen::DASHBOARD;) Tj ET
+BT /F1 10 Tf 54 162.00 Td (`enum class` is a scoped enum. Values must be written as) Tj ET
+BT /F1 10 Tf 54 149.00 Td (`Screen::DASHBOARD`, which avoids name collisions.) Tj ET
+BT /F3 8.5 Tf 54 126.00 Td (bool layoutDrawn = false;) Tj ET
+BT /F3 8.5 Tf 54 115.00 Td (UiModel model;) Tj ET
+BT /F3 8.5 Tf 54 104.00 Td (bool haveModel = false;) Tj ET
+BT /F1 10 Tf 54 83.00 Td (- `layoutDrawn`: whether the static layout has already been drawn.) Tj ET
+BT /F1 10 Tf 54 70.00 Td (- `model`: latest display data.) Tj ET
+endstream
+endobj
+22 0 obj
+<< /Length 2705 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (- `haveModel`: whether `uiSetModel` has been called yet.) Tj ET
+BT /F1 10 Tf 54 719.00 Td (The layout is separated from dynamic values to reduce flicker and avoid) Tj ET
+BT /F1 10 Tf 54 706.00 Td (redrawing the whole screen every update.) Tj ET
+BT /F2 12 Tf 54 681.00 Td (Palette) Tj ET
+BT /F3 8.5 Tf 54 654.00 Td (constexpr uint16_t COL_BG     = TFT_BLACK;) Tj ET
+BT /F3 8.5 Tf 54 643.00 Td (constexpr uint16_t COL_HEAD   = 0x18E3;) Tj ET
+BT /F3 8.5 Tf 54 632.00 Td (...) Tj ET
+BT /F1 10 Tf 54 611.00 Td (These are colors. Some use library constants, others use raw RGB565 hex values.) Tj ET
+BT /F1 10 Tf 54 592.00 Td (RGB565 packs red, green, and blue into 16 bits. Small TFT displays commonly use) Tj ET
+BT /F1 10 Tf 54 579.00 Td (it because it saves RAM and bandwidth.) Tj ET
+BT /F2 12 Tf 54 554.00 Td (Geometry constants) Tj ET
+BT /F3 8.5 Tf 54 527.00 Td (constexpr int HEAD_H = 24;) Tj ET
+BT /F3 8.5 Tf 54 516.00 Td (constexpr int CARD_Y = 30, CARD_H = 112, CARD_W = 152;) Tj ET
+BT /F3 8.5 Tf 54 505.00 Td (...) Tj ET
+BT /F1 10 Tf 54 484.00 Td (These fixed pixel measurements define the dashboard layout for a 320x240) Tj ET
+BT /F1 10 Tf 54 471.00 Td (landscape screen.) Tj ET
+BT /F1 10 Tf 54 452.00 Td (Because embedded displays are fixed-size, hardcoded pixel layout is normal.) Tj ET
+BT /F1 10 Tf 54 439.00 Td (This is closer to drawing on a canvas than building responsive HTML.) Tj ET
+BT /F2 12 Tf 54 414.00 Td (`drawCardFrame`) Tj ET
+BT /F3 8.5 Tf 54 387.00 Td (void drawCardFrame\(int x, int y, int w, int h\)) Tj ET
+BT /F1 10 Tf 54 366.00 Td (Draws a rounded rectangle card background and border.) Tj ET
+BT /F3 8.5 Tf 54 343.00 Td (tft.fillRoundRect\(x, y, w, h, 8, COL_CARD\);) Tj ET
+BT /F3 8.5 Tf 54 332.00 Td (tft.drawRoundRect\(x, y, w, h, 8, COL_BORDER\);) Tj ET
+BT /F1 10 Tf 54 311.00 Td (The `8` is the corner radius.) Tj ET
+BT /F2 12 Tf 54 286.00 Td (`drawPill`) Tj ET
+BT /F1 10 Tf 54 263.00 Td (This draws the colored category label at the bottom of a card.) Tj ET
+BT /F1 10 Tf 54 244.00 Td (It calculates a rectangle inside the card, fills a rounded capsule, centers) Tj ET
+BT /F1 10 Tf 54 231.00 Td (text, and draws the text in black.) Tj ET
+BT /F1 10 Tf 54 212.00 Td (Important TFT concepts:) Tj ET
+BT /F3 8.5 Tf 54 189.00 Td (tft.setTextDatum\(MC_DATUM\);) Tj ET
+BT /F1 10 Tf 54 168.00 Td (This sets the text anchor point. `MC_DATUM` means middle-center.) Tj ET
+BT /F3 8.5 Tf 54 145.00 Td (tft.setTextColor\(TFT_BLACK, color\);) Tj ET
+BT /F1 10 Tf 54 124.00 Td (This sets foreground and background color. Passing the background color helps) Tj ET
+BT /F1 10 Tf 54 111.00 Td (erase old text cleanly.) Tj ET
+BT /F2 12 Tf 54 86.00 Td (`aqiToGaugeX`) Tj ET
+endstream
+endobj
+23 0 obj
+<< /Length 2658 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (This maps an AQI value from 0-500 to an x-coordinate on the gauge.) Tj ET
+BT /F1 10 Tf 54 719.00 Td (The gauge has six segments, one for each AQI category.) Tj ET
+BT /F3 8.5 Tf 54 696.00 Td (static const int lo[6] = {0, 51, 101, 151, 201, 301};) Tj ET
+BT /F3 8.5 Tf 54 685.00 Td (static const int hi[6] = {50, 100, 150, 200, 300, 500};) Tj ET
+BT /F1 10 Tf 54 664.00 Td (For the category containing the current AQI, it interpolates horizontally within) Tj ET
+BT /F1 10 Tf 54 651.00 Td (that segment.) Tj ET
+BT /F3 8.5 Tf 54 628.00 Td (aqi = constrain\(aqi, 0, 500\);) Tj ET
+BT /F1 10 Tf 54 607.00 Td (`constrain` is an Arduino helper that clamps a value to a range.) Tj ET
+BT /F2 12 Tf 54 582.00 Td (`drawHeader`) Tj ET
+BT /F1 10 Tf 54 559.00 Td (Draws the top bar and title.) Tj ET
+BT /F3 8.5 Tf 54 536.00 Td (tft.fillRect\(0, 0, 320, HEAD_H, COL_HEAD\);) Tj ET
+BT /F1 10 Tf 54 515.00 Td (This fills a 320-pixel-wide header strip.) Tj ET
+BT /F3 8.5 Tf 54 492.00 Td (tft.setTextDatum\(ML_DATUM\);) Tj ET
+BT /F1 10 Tf 54 471.00 Td (`ML_DATUM` means middle-left text anchor.) Tj ET
+BT /F2 12 Tf 54 446.00 Td (`drawStatus`) Tj ET
+BT /F1 10 Tf 54 423.00 Td (This draws the status text and colored dot in the header.) Tj ET
+BT /F1 10 Tf 54 404.00 Td (The logic is:) Tj ET
+BT /F1 10 Tf 54 385.00 Td (- If either sensor is warming up: show `WARM-UP` in yellow.) Tj ET
+BT /F1 10 Tf 54 372.00 Td (- Else if either sensor is invalid: show `NO DATA` in red.) Tj ET
+BT /F1 10 Tf 54 359.00 Td (- Else show `LIVE` in green.) Tj ET
+BT /F3 8.5 Tf 54 336.00 Td (tft.setTextPadding\(tft.textWidth\("WARM-UP", 2\)\);) Tj ET
+BT /F1 10 Tf 54 315.00 Td (Text padding makes new text overwrite the same width as the longest possible) Tj ET
+BT /F1 10 Tf 54 302.00 Td (status string. This avoids leaving old characters on screen.) Tj ET
+BT /F2 12 Tf 54 277.00 Td (`drawDashboardLayout`) Tj ET
+BT /F1 10 Tf 54 254.00 Td (This draws static dashboard elements:) Tj ET
+BT /F1 10 Tf 54 235.00 Td (- black background) Tj ET
+BT /F1 10 Tf 54 222.00 Td (- header) Tj ET
+BT /F1 10 Tf 54 209.00 Td (- AQI and CO2 cards) Tj ET
+BT /F1 10 Tf 54 196.00 Td (- labels) Tj ET
+BT /F1 10 Tf 54 183.00 Td (- six-color AQI gauge) Tj ET
+BT /F1 10 Tf 54 170.00 Td (- three PM tiles) Tj ET
+BT /F1 10 Tf 54 151.00 Td (It does not draw live values. Those are drawn by `drawDashboard`.) Tj ET
+BT /F1 10 Tf 54 132.00 Td (This split is important on small displays because drawing is slow compared with) Tj ET
+BT /F1 10 Tf 54 119.00 Td (normal desktop UI rendering.) Tj ET
+BT /F2 12 Tf 54 94.00 Td (`drawGaugeMarker`) Tj ET
+BT /F1 10 Tf 54 71.00 Td (This erases the old marker area:) Tj ET
+endstream
+endobj
+24 0 obj
+<< /Length 2737 >>
+stream
+BT /F3 8.5 Tf 54 728.00 Td (tft.fillRect\(GX - 6, MARK_Y, GW + 12, MARK_H, COL_BG\);) Tj ET
+BT /F1 10 Tf 54 707.00 Td (Then, if PM data is valid, it draws a white triangle under the gauge at the) Tj ET
+BT /F1 10 Tf 54 694.00 Td (current AQI position.) Tj ET
+BT /F2 12 Tf 54 669.00 Td (`drawDashboard`) Tj ET
+BT /F1 10 Tf 54 646.00 Td (This updates dynamic dashboard values.) Tj ET
+BT /F1 10 Tf 54 627.00 Td (For the AQI card:) Tj ET
+BT /F1 10 Tf 54 608.00 Td (- If PM data is valid, draw the AQI number and category pill.) Tj ET
+BT /F1 10 Tf 54 595.00 Td (- Otherwise draw `--` and a `WARM-UP` or `NO DATA` pill.) Tj ET
+BT /F1 10 Tf 54 576.00 Td (For the CO2 card:) Tj ET
+BT /F1 10 Tf 54 557.00 Td (- If CO2 data is valid, draw ppm and comfort label.) Tj ET
+BT /F1 10 Tf 54 544.00 Td (- Otherwise draw `--` and warm-up/no-data state.) Tj ET
+BT /F1 10 Tf 54 525.00 Td (For the PM tiles:) Tj ET
+BT /F1 10 Tf 54 506.00 Td (- PM1.0 is drawn in normal value color.) Tj ET
+BT /F1 10 Tf 54 493.00 Td (- PM2.5 is colored by PM2.5 AQI category.) Tj ET
+BT /F1 10 Tf 54 480.00 Td (- PM10 is colored by PM10 AQI category.) Tj ET
+BT /F1 10 Tf 54 461.00 Td (This gives the user more information than the combined AQI alone.) Tj ET
+BT /F2 12 Tf 54 436.00 Td (`drawDetailsLayout`) Tj ET
+BT /F1 10 Tf 54 413.00 Td (This draws the static labels for the details screen:) Tj ET
+BT /F1 10 Tf 54 394.00 Td (- PM1.0, PM2.5, PM10) Tj ET
+BT /F1 10 Tf 54 381.00 Td (- particle counts) Tj ET
+BT /F1 10 Tf 54 368.00 Td (- CO2) Tj ET
+BT /F1 10 Tf 54 355.00 Td (- sensor temperature) Tj ET
+BT /F1 10 Tf 54 342.00 Td (- AQI subindices) Tj ET
+BT /F1 10 Tf 54 329.00 Td (- uptime) Tj ET
+BT /F1 10 Tf 54 310.00 Td (The title includes `\('d' = back\)` because pressing `d` in the serial monitor) Tj ET
+BT /F1 10 Tf 54 297.00 Td (toggles screens.) Tj ET
+BT /F2 12 Tf 54 272.00 Td (`drawDetailRow`) Tj ET
+BT /F3 8.5 Tf 54 245.00 Td (void drawDetailRow\(uint8_t row, const String& value, uint16_t color = COL_VALUE\)) Tj ET
+BT /F1 10 Tf 54 224.00 Td (This draws a right-aligned value for a given row.) Tj ET
+BT /F1 10 Tf 54 205.00 Td (`String` is Arduino's dynamic string class. It is convenient here because the) Tj ET
+BT /F1 10 Tf 54 192.00 Td (details screen builds values like:) Tj ET
+BT /F3 8.5 Tf 54 169.00 Td (String\(model.aqiPm25\) + " / " + String\(model.aqiPm10\)) Tj ET
+BT /F1 10 Tf 54 148.00 Td (The default color is `COL_VALUE`, but callers can pass another color.) Tj ET
+BT /F2 12 Tf 54 123.00 Td (`drawDetails`) Tj ET
+BT /F1 10 Tf 54 100.00 Td (This updates the dynamic values on the details screen.) Tj ET
+BT /F1 10 Tf 54 81.00 Td (If PM data is valid, it draws all PM and particle count rows. Otherwise it draws) Tj ET
+BT /F1 10 Tf 54 68.00 Td (`--`.) Tj ET
+endstream
+endobj
+25 0 obj
+<< /Length 2737 >>
+stream
+BT /F1 10 Tf 54 732.00 Td (If CO2 data is valid, it draws CO2 and temperature. Otherwise it draws `--`.) Tj ET
+BT /F1 10 Tf 54 713.00 Td (It formats uptime manually:) Tj ET
+BT /F3 8.5 Tf 54 690.00 Td (snprintf\(buf, sizeof\(buf\), "%lu:%02lu:%02lu", hours, minutes, seconds\);) Tj ET
+BT /F1 10 Tf 54 669.00 Td (`snprintf` writes formatted text into a fixed character buffer safely, limited) Tj ET
+BT /F1 10 Tf 54 656.00 Td (by the buffer size.) Tj ET
+BT /F2 12 Tf 54 631.00 Td (`render`) Tj ET
+BT /F3 8.5 Tf 54 604.00 Td (void render\(\) {) Tj ET
+BT /F3 8.5 Tf 54 593.00 Td (    if \(!layoutDrawn\) {) Tj ET
+BT /F3 8.5 Tf 54 582.00 Td (        ...) Tj ET
+BT /F3 8.5 Tf 54 571.00 Td (    }) Tj ET
+BT /F3 8.5 Tf 54 560.00 Td (    if \(!haveModel\) return;) Tj ET
+BT /F3 8.5 Tf 54 549.00 Td (    ...) Tj ET
+BT /F3 8.5 Tf 54 538.00 Td (}) Tj ET
+BT /F1 10 Tf 54 517.00 Td (`render` is the central drawing function.) Tj ET
+BT /F1 10 Tf 54 498.00 Td (If the layout has not been drawn, it draws the static layout for the current) Tj ET
+BT /F1 10 Tf 54 485.00 Td (screen. If no model has been received yet, it stops there.) Tj ET
+BT /F1 10 Tf 54 466.00 Td (Once a model exists, it draws the dynamic content for the active screen.) Tj ET
+BT /F2 12 Tf 54 441.00 Td (Public UI functions) Tj ET
+BT /F3 8.5 Tf 54 414.00 Td (void uiBegin\(\) {) Tj ET
+BT /F3 8.5 Tf 54 403.00 Td (    tft.init\(\);) Tj ET
+BT /F3 8.5 Tf 54 392.00 Td (    tft.setRotation\(1\);) Tj ET
+BT /F3 8.5 Tf 54 381.00 Td (    render\(\);) Tj ET
+BT /F3 8.5 Tf 54 370.00 Td (}) Tj ET
+BT /F1 10 Tf 54 349.00 Td (Initialize the display, rotate it to landscape, and draw initial layout.) Tj ET
+BT /F3 8.5 Tf 54 326.00 Td (void uiSetModel\(const UiModel& m\) {) Tj ET
+BT /F3 8.5 Tf 54 315.00 Td (    model = m;) Tj ET
+BT /F3 8.5 Tf 54 304.00 Td (    haveModel = true;) Tj ET
+BT /F3 8.5 Tf 54 293.00 Td (    render\(\);) Tj ET
+BT /F3 8.5 Tf 54 282.00 Td (}) Tj ET
+BT /F1 10 Tf 54 261.00 Td (Copy the new model, mark data as available, and redraw.) Tj ET
+BT /F3 8.5 Tf 54 238.00 Td (void uiToggleScreen\(\) {) Tj ET
+BT /F3 8.5 Tf 54 227.00 Td (    screen = \(screen == Screen::DASHBOARD\) ? Screen::DETAILS : Screen::DASHBOARD;) Tj ET
+BT /F3 8.5 Tf 54 216.00 Td (    layoutDrawn = false;) Tj ET
+BT /F3 8.5 Tf 54 205.00 Td (    render\(\);) Tj ET
+BT /F3 8.5 Tf 54 194.00 Td (}) Tj ET
+BT /F1 10 Tf 54 173.00 Td (Switch screens using a ternary expression. Mark layout as not drawn so the next) Tj ET
+BT /F1 10 Tf 54 160.00 Td (render clears and redraws the full screen.) Tj ET
+BT /F2 14 Tf 54 133.00 Td (13. `src/main.cpp`) Tj ET
+BT /F1 10 Tf 54 106.00 Td (This is the coordinator. It wires sensors, timings, UI, button input, and serial) Tj ET
+BT /F1 10 Tf 54 93.00 Td (logs together.) Tj ET
+endstream
+endobj
+26 0 obj
+<< /Length 2980 >>
+stream
+BT /F2 12 Tf 54 738.00 Td (Header comment) Tj ET
+BT /F1 10 Tf 54 715.00 Td (The top comment explains a very important ESP8266 limitation:) Tj ET
+BT /F1 10 Tf 54 696.00 Td (Both sensors are UART devices at 9600 baud, but the ESP8266 has only one full) Tj ET
+BT /F1 10 Tf 54 683.00 Td (hardware UART available, and this project keeps it for USB logging/flashing.) Tj ET
+BT /F1 10 Tf 54 664.00 Td (So the sensors use `SoftwareSerial`, which is "bit-banged" serial. Bit-banged) Tj ET
+BT /F1 10 Tf 54 651.00 Td (serial is implemented in software, so it is timing-sensitive and can reliably) Tj ET
+BT /F1 10 Tf 54 638.00 Td (listen to only one port at a time.) Tj ET
+BT /F1 10 Tf 54 619.00 Td (That is why the firmware uses a state machine:) Tj ET
+BT /F3 8.5 Tf 54 596.00 Td (PMS_LISTEN -> CO2_WAIT -> IDLE -> next cycle) Tj ET
+BT /F1 10 Tf 54 575.00 Td (It listens to the particle sensor, then asks the CO2 sensor, then waits until) Tj ET
+BT /F1 10 Tf 54 562.00 Td (the next 5-second cycle.) Tj ET
+BT /F1 10 Tf 54 543.00 Td (The comment also explains why the TFT is redrawn during hand-off moments.) Tj ET
+BT /F1 10 Tf 54 530.00 Td (Display SPI writes can be long bursts, and those bursts could interfere with) Tj ET
+BT /F1 10 Tf 54 517.00 Td (SoftwareSerial timing if they happen while receiving PMS bytes.) Tj ET
+BT /F2 12 Tf 54 492.00 Td (Includes) Tj ET
+BT /F3 8.5 Tf 54 465.00 Td (#include <Arduino.h>) Tj ET
+BT /F3 8.5 Tf 54 454.00 Td (#include <ESP8266WiFi.h>) Tj ET
+BT /F3 8.5 Tf 54 443.00 Td (#include <SoftwareSerial.h>) Tj ET
+BT /F1 10 Tf 54 422.00 Td (Framework/library includes:) Tj ET
+BT /F1 10 Tf 54 403.00 Td (- `Arduino.h`: Arduino basics.) Tj ET
+BT /F1 10 Tf 54 390.00 Td (- `ESP8266WiFi.h`: used to turn Wi-Fi off.) Tj ET
+BT /F1 10 Tf 54 377.00 Td (- `SoftwareSerial.h`: software UART implementation.) Tj ET
+BT /F3 8.5 Tf 54 354.00 Td (#include "config.h") Tj ET
+BT /F3 8.5 Tf 54 343.00 Td (#include "pms5003.h") Tj ET
+BT /F3 8.5 Tf 54 332.00 Td (#include "mhz19.h") Tj ET
+BT /F3 8.5 Tf 54 321.00 Td (#include "aqi.h") Tj ET
+BT /F3 8.5 Tf 54 310.00 Td (#include "ui.h") Tj ET
+BT /F1 10 Tf 54 289.00 Td (Local project headers.) Tj ET
+BT /F2 12 Tf 54 264.00 Td (Global objects) Tj ET
+BT /F3 8.5 Tf 54 237.00 Td (SoftwareSerial pmsSerial;) Tj ET
+BT /F3 8.5 Tf 54 226.00 Td (SoftwareSerial mhzSerial;) Tj ET
+BT /F3 8.5 Tf 54 215.00 Td (Pms5003 pms\(pmsSerial\);) Tj ET
+BT /F3 8.5 Tf 54 204.00 Td (Mhz19 mhz\(mhzSerial\);) Tj ET
+BT /F1 10 Tf 54 183.00 Td (Two software serial ports are created, then passed into the sensor driver) Tj ET
+BT /F1 10 Tf 54 170.00 Td (objects.) Tj ET
+BT /F1 10 Tf 54 151.00 Td (The drivers store references to these serial objects. That means when `pms`) Tj ET
+BT /F1 10 Tf 54 138.00 Td (reads `_ser`, it is reading from `pmsSerial`.) Tj ET
+BT /F2 12 Tf 54 113.00 Td (State machine) Tj ET
+BT /F3 8.5 Tf 54 86.00 Td (enum class Phase : uint8_t { PMS_LISTEN, CO2_WAIT, IDLE };) Tj ET
+BT /F3 8.5 Tf 54 75.00 Td (Phase phase = Phase::IDLE;) Tj ET
+endstream
+endobj
+27 0 obj
+<< /Length 2527 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (The firmware can be in one of three phases:) Tj ET
+BT /F1 10 Tf 54 719.00 Td (- `PMS_LISTEN`: listen for a PMS5003 frame.) Tj ET
+BT /F1 10 Tf 54 706.00 Td (- `CO2_WAIT`: wait for an MH-Z19E response.) Tj ET
+BT /F1 10 Tf 54 693.00 Td (- `IDLE`: wait until the next sample cycle.) Tj ET
+BT /F3 8.5 Tf 54 670.00 Td (uint32_t phaseStart = 0;) Tj ET
+BT /F3 8.5 Tf 54 659.00 Td (uint32_t cycleStart = 0;) Tj ET
+BT /F1 10 Tf 54 638.00 Td (These store timestamps from `millis\(\)`.) Tj ET
+BT /F1 10 Tf 54 619.00 Td (`millis\(\)` returns milliseconds since boot. It is the standard Arduino way to do) Tj ET
+BT /F1 10 Tf 54 606.00 Td (non-blocking timing.) Tj ET
+BT /F2 12 Tf 54 581.00 Td (Stored sensor state) Tj ET
+BT /F3 8.5 Tf 54 554.00 Td (PmsData pmData{};) Tj ET
+BT /F3 8.5 Tf 54 543.00 Td (uint32_t pmLastOkMs = 0;) Tj ET
+BT /F3 8.5 Tf 54 532.00 Td (bool pmEverValid = false;) Tj ET
+BT /F1 10 Tf 54 511.00 Td (`pmData` stores the latest PMS reading. `pmLastOkMs` stores when the last valid) Tj ET
+BT /F1 10 Tf 54 498.00 Td (frame arrived. `pmEverValid` tracks whether there has ever been a valid reading.) Tj ET
+BT /F1 10 Tf 54 479.00 Td (The CO2 equivalents are:) Tj ET
+BT /F3 8.5 Tf 54 456.00 Td (int co2Ppm = -1;) Tj ET
+BT /F3 8.5 Tf 54 445.00 Td (int co2Temp = 0;) Tj ET
+BT /F3 8.5 Tf 54 434.00 Td (uint32_t co2LastOkMs = 0;) Tj ET
+BT /F3 8.5 Tf 54 423.00 Td (bool co2EverValid = false;) Tj ET
+BT /F2 12 Tf 54 396.00 Td (`startCycle`) Tj ET
+BT /F3 8.5 Tf 54 369.00 Td (void startCycle\(\) {) Tj ET
+BT /F3 8.5 Tf 54 358.00 Td (    cycleStart = phaseStart = millis\(\);) Tj ET
+BT /F1 10 Tf 54 337.00 Td (Set both cycle and phase start times to now.) Tj ET
+BT /F3 8.5 Tf 54 314.00 Td (mhzSerial.enableRx\(false\);) Tj ET
+BT /F1 10 Tf 54 293.00 Td (Turn off MH-Z19E receive, because the firmware is about to listen to PMS.) Tj ET
+BT /F3 8.5 Tf 54 270.00 Td (pms.reset\(\);) Tj ET
+BT /F1 10 Tf 54 249.00 Td (Drop any partial PMS frame.) Tj ET
+BT /F3 8.5 Tf 54 226.00 Td (pmsSerial.enableRx\(true\);) Tj ET
+BT /F1 10 Tf 54 205.00 Td (Start listening to the PMS serial port.) Tj ET
+BT /F3 8.5 Tf 54 182.00 Td (while \(pmsSerial.available\(\)\) pmsSerial.read\(\);) Tj ET
+BT /F1 10 Tf 54 161.00 Td (Flush stale bytes from the receive buffer.) Tj ET
+BT /F3 8.5 Tf 54 138.00 Td (phase = Phase::PMS_LISTEN;) Tj ET
+BT /F1 10 Tf 54 117.00 Td (Move the state machine into PMS listening mode.) Tj ET
+BT /F2 12 Tf 54 92.00 Td (`startCo2Request`) Tj ET
+BT /F3 8.5 Tf 54 65.00 Td (pmsSerial.enableRx\(false\);) Tj ET
+endstream
+endobj
+28 0 obj
+<< /Length 2695 >>
+stream
+BT /F3 8.5 Tf 54 738.00 Td (mhzSerial.enableRx\(true\);) Tj ET
+BT /F1 10 Tf 54 717.00 Td (Stop listening to PMS, start listening to MH-Z19E.) Tj ET
+BT /F3 8.5 Tf 54 694.00 Td (while \(mhzSerial.available\(\)\) mhzSerial.read\(\);) Tj ET
+BT /F1 10 Tf 54 673.00 Td (Flush stale CO2 bytes.) Tj ET
+BT /F3 8.5 Tf 54 650.00 Td (mhz.requestReading\(\);) Tj ET
+BT /F1 10 Tf 54 629.00 Td (Send the MH-Z19E read command.) Tj ET
+BT /F3 8.5 Tf 54 606.00 Td (phaseStart = millis\(\);) Tj ET
+BT /F3 8.5 Tf 54 595.00 Td (phase = Phase::CO2_WAIT;) Tj ET
+BT /F1 10 Tf 54 574.00 Td (Record the start time and move to CO2 wait phase.) Tj ET
+BT /F2 12 Tf 54 549.00 Td (`publishReadings`) Tj ET
+BT /F1 10 Tf 54 526.00 Td (This function builds a `UiModel`, sends it to the UI, and logs a summary over) Tj ET
+BT /F1 10 Tf 54 513.00 Td (USB serial.) Tj ET
+BT /F3 8.5 Tf 54 490.00 Td (uint32_t now = millis\(\);) Tj ET
+BT /F3 8.5 Tf 54 479.00 Td (UiModel m;) Tj ET
+BT /F1 10 Tf 54 458.00 Td (Create a fresh model. Its default field values come from `UiModel` defaults in) Tj ET
+BT /F1 10 Tf 54 445.00 Td (`ui.h`.) Tj ET
+BT /F1 10 Tf 54 426.00 Td (Warm-up flags:) Tj ET
+BT /F3 8.5 Tf 54 403.00 Td (m.pmWarmup  = now < PMS_WARMUP_MS;) Tj ET
+BT /F3 8.5 Tf 54 392.00 Td (m.co2Warmup = now < MHZ_WARMUP_MS;) Tj ET
+BT /F1 10 Tf 54 371.00 Td (Because `now` is milliseconds since boot, this checks whether boot time is still) Tj ET
+BT /F1 10 Tf 54 358.00 Td (inside the warm-up window.) Tj ET
+BT /F1 10 Tf 54 339.00 Td (Validity flags:) Tj ET
+BT /F3 8.5 Tf 54 316.00 Td (m.pmValid  = pmEverValid && !m.pmWarmup && \(now - pmLastOkMs\) < DATA_STALE_MS;) Tj ET
+BT /F3 8.5 Tf 54 305.00 Td (m.co2Valid = co2EverValid && !m.co2Warmup && \(now - co2LastOkMs\) < DATA_STALE_MS;) Tj ET
+BT /F1 10 Tf 54 284.00 Td (A sensor is valid only if:) Tj ET
+BT /F1 10 Tf 54 265.00 Td (1. It has produced at least one good reading.) Tj ET
+BT /F1 10 Tf 54 252.00 Td (2. It is not warming up.) Tj ET
+BT /F1 10 Tf 54 239.00 Td (3. The latest good reading is not stale.) Tj ET
+BT /F1 10 Tf 54 220.00 Td (Uptime:) Tj ET
+BT /F3 8.5 Tf 54 197.00 Td (m.uptimeS = now / 1000;) Tj ET
+BT /F1 10 Tf 54 176.00 Td (Convert milliseconds to seconds.) Tj ET
+BT /F1 10 Tf 54 157.00 Td (If PM has ever been valid:) Tj ET
+BT /F3 8.5 Tf 54 134.00 Td (m.pm1 = pmData.pm1_atm;) Tj ET
+BT /F3 8.5 Tf 54 123.00 Td (m.pm25 = pmData.pm25_atm;) Tj ET
+BT /F3 8.5 Tf 54 112.00 Td (m.pm10 = pmData.pm10_atm;) Tj ET
+BT /F3 8.5 Tf 54 101.00 Td (...) Tj ET
+BT /F3 8.5 Tf 54 90.00 Td (m.aqiPm25 = aqiFromPm25\(pmData.pm25_atm\);) Tj ET
+BT /F3 8.5 Tf 54 79.00 Td (m.aqiPm10 = aqiFromPm10\(pmData.pm10_atm\);) Tj ET
+BT /F3 8.5 Tf 54 68.00 Td (m.aqi = max\(m.aqiPm25, m.aqiPm10\);) Tj ET
+endstream
+endobj
+29 0 obj
+<< /Length 2535 >>
+stream
+BT /F1 10 Tf 54 728.00 Td (The UI gets the last PM readings even if currently warming up/stale. The) Tj ET
+BT /F1 10 Tf 54 715.00 Td (`pmValid` flag controls whether to display them as live values.) Tj ET
+BT /F1 10 Tf 54 696.00 Td (The combined AQI is the worse of the PM2.5 and PM10 AQI values.) Tj ET
+BT /F1 10 Tf 54 677.00 Td (If CO2 has ever been valid:) Tj ET
+BT /F3 8.5 Tf 54 654.00 Td (m.co2 = co2Ppm;) Tj ET
+BT /F3 8.5 Tf 54 643.00 Td (m.temp = co2Temp;) Tj ET
+BT /F1 10 Tf 54 622.00 Td (Then:) Tj ET
+BT /F3 8.5 Tf 54 599.00 Td (uiSetModel\(m\);) Tj ET
+BT /F1 10 Tf 54 578.00 Td (Send the model to the UI and redraw.) Tj ET
+BT /F1 10 Tf 54 559.00 Td (Finally:) Tj ET
+BT /F3 8.5 Tf 54 536.00 Td (Serial.printf\(...\)) Tj ET
+BT /F1 10 Tf 54 515.00 Td (Print a debug line. This is like `console.log`, but over the USB serial monitor.) Tj ET
+BT /F2 12 Tf 54 490.00 Td (`setup`) Tj ET
+BT /F3 8.5 Tf 54 463.00 Td (Serial.begin\(DEBUG_BAUD\);) Tj ET
+BT /F3 8.5 Tf 54 452.00 Td (delay\(50\);) Tj ET
+BT /F3 8.5 Tf 54 441.00 Td (Serial.println\(...\);) Tj ET
+BT /F1 10 Tf 54 420.00 Td (Start USB serial logging, wait briefly, and print a banner.) Tj ET
+BT /F3 8.5 Tf 54 397.00 Td (WiFi.mode\(WIFI_OFF\);) Tj ET
+BT /F1 10 Tf 54 376.00 Td (Turn Wi-Fi off. Even though ESP8266 has Wi-Fi, this version does not use it.) Tj ET
+BT /F1 10 Tf 54 363.00 Td (Turning it off saves power and reduces heat.) Tj ET
+BT /F3 8.5 Tf 54 340.00 Td (pinMode\(PIN_BUTTON, INPUT_PULLDOWN_16\);) Tj ET
+BT /F1 10 Tf 54 319.00 Td (Configure the button pin as input with GPIO16's internal pulldown.) Tj ET
+BT /F3 8.5 Tf 54 296.00 Td (pmsSerial.begin\(PMS_BAUD, SWSERIAL_8N1, PIN_PMS_RX, -1\);) Tj ET
+BT /F1 10 Tf 54 275.00 Td (Start PMS SoftwareSerial:) Tj ET
+BT /F1 10 Tf 54 256.00 Td (- baud: 9600) Tj ET
+BT /F1 10 Tf 54 243.00 Td (- mode: 8 data bits, no parity, 1 stop bit) Tj ET
+BT /F1 10 Tf 54 230.00 Td (- RX pin: `PIN_PMS_RX`) Tj ET
+BT /F1 10 Tf 54 217.00 Td (- TX pin: `-1`, meaning no transmit pin) Tj ET
+BT /F3 8.5 Tf 54 194.00 Td (mhzSerial.begin\(MHZ_BAUD, SWSERIAL_8N1, PIN_MHZ_RX, PIN_MHZ_TX\);) Tj ET
+BT /F3 8.5 Tf 54 183.00 Td (mhzSerial.enableRx\(false\);) Tj ET
+BT /F1 10 Tf 54 162.00 Td (Start MH-Z19E serial with both RX and TX, then disable RX until it is needed.) Tj ET
+BT /F3 8.5 Tf 54 139.00 Td (uiBegin\(\);) Tj ET
+BT /F1 10 Tf 54 118.00 Td (Initialize the display.) Tj ET
+BT /F3 8.5 Tf 54 95.00 Td (mhz.setAutoCalibration\(MHZ19_ABC_ENABLED\);) Tj ET
+BT /F1 10 Tf 54 74.00 Td (Send the ABC configuration command to the CO2 sensor.) Tj ET
+endstream
+endobj
+30 0 obj
+<< /Length 2672 >>
+stream
+BT /F3 8.5 Tf 54 734.00 Td (startCycle\(\);) Tj ET
+BT /F1 10 Tf 54 713.00 Td (Begin the first sensor cycle.) Tj ET
+BT /F2 12 Tf 54 688.00 Td (`loop`) Tj ET
+BT /F1 10 Tf 54 665.00 Td (`loop\(\)` runs forever.) Tj ET
+BT /F3 8.5 Tf 54 642.00 Td (uint32_t now = millis\(\);) Tj ET
+BT /F1 10 Tf 54 621.00 Td (Capture current time once for this loop iteration.) Tj ET
+BT /F1 10 Tf 54 602.00 Td (The main switch:) Tj ET
+BT /F3 8.5 Tf 54 579.00 Td (switch \(phase\) {) Tj ET
+BT /F1 10 Tf 54 558.00 Td (This is the state machine.) Tj ET
+BT /F1 10 Tf 54 539.00 Td (#### `PMS_LISTEN`) Tj ET
+BT /F3 8.5 Tf 54 516.00 Td (if \(pms.poll\(\)\) {) Tj ET
+BT /F3 8.5 Tf 54 505.00 Td (    pmData = pms.data\(\);) Tj ET
+BT /F3 8.5 Tf 54 494.00 Td (    pmLastOkMs = now;) Tj ET
+BT /F3 8.5 Tf 54 483.00 Td (    pmEverValid = true;) Tj ET
+BT /F3 8.5 Tf 54 472.00 Td (    startCo2Request\(\);) Tj ET
+BT /F3 8.5 Tf 54 461.00 Td (}) Tj ET
+BT /F1 10 Tf 54 440.00 Td (If the PMS parser found a valid frame, save it, mark it valid, then move on to) Tj ET
+BT /F1 10 Tf 54 427.00 Td (CO2.) Tj ET
+BT /F3 8.5 Tf 54 404.00 Td (else if \(now - phaseStart > PMS_LISTEN_TIMEOUT_MS\) {) Tj ET
+BT /F3 8.5 Tf 54 393.00 Td (    startCo2Request\(\);) Tj ET
+BT /F3 8.5 Tf 54 382.00 Td (}) Tj ET
+BT /F1 10 Tf 54 361.00 Td (If no PMS frame arrived within 3.5 seconds, still try CO2. This prevents one) Tj ET
+BT /F1 10 Tf 54 348.00 Td (sensor failure from blocking the whole loop.) Tj ET
+BT /F1 10 Tf 54 329.00 Td (#### `CO2_WAIT`) Tj ET
+BT /F3 8.5 Tf 54 306.00 Td (if \(mhz.poll\(\)\) {) Tj ET
+BT /F3 8.5 Tf 54 295.00 Td (    co2Ppm = mhz.ppm\(\);) Tj ET
+BT /F3 8.5 Tf 54 284.00 Td (    co2Temp = mhz.temperature\(\);) Tj ET
+BT /F3 8.5 Tf 54 273.00 Td (    co2LastOkMs = now;) Tj ET
+BT /F3 8.5 Tf 54 262.00 Td (    co2EverValid = true;) Tj ET
+BT /F3 8.5 Tf 54 251.00 Td (    mhzSerial.enableRx\(false\);) Tj ET
+BT /F3 8.5 Tf 54 240.00 Td (    publishReadings\(\);) Tj ET
+BT /F3 8.5 Tf 54 229.00 Td (    phase = Phase::IDLE;) Tj ET
+BT /F3 8.5 Tf 54 218.00 Td (}) Tj ET
+BT /F1 10 Tf 54 197.00 Td (If a valid CO2 response arrives, save it, stop receiving on that port, publish) Tj ET
+BT /F1 10 Tf 54 184.00 Td (the readings, then enter idle.) Tj ET
+BT /F3 8.5 Tf 54 161.00 Td (else if \(now - phaseStart > MHZ_RESPONSE_TIMEOUT_MS\) {) Tj ET
+BT /F3 8.5 Tf 54 150.00 Td (    mhzSerial.enableRx\(false\);) Tj ET
+BT /F3 8.5 Tf 54 139.00 Td (    publishReadings\(\);) Tj ET
+BT /F3 8.5 Tf 54 128.00 Td (    phase = Phase::IDLE;) Tj ET
+BT /F3 8.5 Tf 54 117.00 Td (}) Tj ET
+BT /F1 10 Tf 54 96.00 Td (If CO2 times out, still publish the latest available readings and enter idle.) Tj ET
+BT /F1 10 Tf 54 77.00 Td (#### `IDLE`) Tj ET
+endstream
+endobj
+31 0 obj
+<< /Length 3082 >>
+stream
+BT /F3 8.5 Tf 54 738.00 Td (if \(now - cycleStart >= SAMPLE_INTERVAL_MS\) startCycle\(\);) Tj ET
+BT /F1 10 Tf 54 717.00 Td (Wait until 5 seconds have passed since the start of the cycle, then begin) Tj ET
+BT /F1 10 Tf 54 704.00 Td (another one.) Tj ET
+BT /F2 12 Tf 54 679.00 Td (Button and serial screen toggle) Tj ET
+BT /F1 10 Tf 54 656.00 Td (After sensor handling, the loop checks input:) Tj ET
+BT /F3 8.5 Tf 54 633.00 Td (static bool btnPrev = false;) Tj ET
+BT /F3 8.5 Tf 54 622.00 Td (static uint32_t btnLastMs = 0;) Tj ET
+BT /F1 10 Tf 54 601.00 Td (`static` local variables keep their values between function calls. This is like) Tj ET
+BT /F1 10 Tf 54 588.00 Td (state stored outside the function, but scoped inside the function.) Tj ET
+BT /F3 8.5 Tf 54 565.00 Td (bool btn = digitalRead\(PIN_BUTTON\) == HIGH;) Tj ET
+BT /F1 10 Tf 54 544.00 Td (Read the button.) Tj ET
+BT /F3 8.5 Tf 54 521.00 Td (if \(btn && !btnPrev && now - btnLastMs > 250\) {) Tj ET
+BT /F3 8.5 Tf 54 510.00 Td (    btnLastMs = now;) Tj ET
+BT /F3 8.5 Tf 54 499.00 Td (    uiToggleScreen\(\);) Tj ET
+BT /F3 8.5 Tf 54 488.00 Td (}) Tj ET
+BT /F1 10 Tf 54 467.00 Td (This detects a rising edge: the button is pressed now but was not pressed) Tj ET
+BT /F1 10 Tf 54 454.00 Td (before. The 250 ms lockout is debounce, preventing one physical press from) Tj ET
+BT /F1 10 Tf 54 441.00 Td (being counted multiple times.) Tj ET
+BT /F3 8.5 Tf 54 418.00 Td (btnPrev = btn;) Tj ET
+BT /F1 10 Tf 54 397.00 Td (Store current state for the next loop.) Tj ET
+BT /F1 10 Tf 54 378.00 Td (Serial shortcut:) Tj ET
+BT /F3 8.5 Tf 54 355.00 Td (if \(Serial.available\(\)\) {) Tj ET
+BT /F3 8.5 Tf 54 344.00 Td (    char c = \(char\)Serial.read\(\);) Tj ET
+BT /F3 8.5 Tf 54 333.00 Td (    if \(c == 'd' || c == 'D'\) uiToggleScreen\(\);) Tj ET
+BT /F3 8.5 Tf 54 322.00 Td (}) Tj ET
+BT /F1 10 Tf 54 301.00 Td (If the user types `d` or `D` in the serial monitor, toggle the display screen.) Tj ET
+BT /F3 8.5 Tf 54 278.00 Td (yield\(\);) Tj ET
+BT /F1 10 Tf 54 257.00 Td (On ESP8266, `yield\(\)` lets background system tasks run. It helps avoid watchdog) Tj ET
+BT /F1 10 Tf 54 244.00 Td (resets during long loops.) Tj ET
+BT /F2 14 Tf 54 217.00 Td (14. Runtime Data Flow) Tj ET
+BT /F1 10 Tf 54 190.00 Td (The full runtime flow is:) Tj ET
+BT /F1 10 Tf 54 171.00 Td (1. `setup\(\)` starts serial logging, disables Wi-Fi, configures pins, starts) Tj ET
+BT /F1 10 Tf 54 158.00 Td (   SoftwareSerial ports, initializes the UI, configures CO2 ABC, and starts the) Tj ET
+BT /F1 10 Tf 54 145.00 Td (   first sensor cycle.) Tj ET
+BT /F1 10 Tf 54 132.00 Td (2. `loop\(\)` enters `PMS_LISTEN`.) Tj ET
+BT /F1 10 Tf 54 119.00 Td (3. `Pms5003::poll\(\)` reads PMS bytes until it finds a valid 32-byte frame.) Tj ET
+BT /F1 10 Tf 54 106.00 Td (4. `main.cpp` saves `PmsData` and switches to CO2.) Tj ET
+BT /F1 10 Tf 54 93.00 Td (5. `Mhz19::requestReading\(\)` sends a 9-byte command.) Tj ET
+BT /F1 10 Tf 54 80.00 Td (6. `Mhz19::poll\(\)` waits for a valid 9-byte response.) Tj ET
+BT /F1 10 Tf 54 67.00 Td (7. `publishReadings\(\)` builds a `UiModel`.) Tj ET
+endstream
+endobj
+32 0 obj
+<< /Length 2949 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (8. `aqiFromPm25` and `aqiFromPm10` compute AQI subindices.) Tj ET
+BT /F1 10 Tf 54 725.00 Td (9. `uiSetModel\(\)` stores the model and redraws the active screen.) Tj ET
+BT /F1 10 Tf 54 712.00 Td (10. The system idles until the 5-second interval is up.) Tj ET
+BT /F2 14 Tf 54 685.00 Td (15. Why the Code Is Split This Way) Tj ET
+BT /F1 10 Tf 54 658.00 Td (The split is clean and intentional:) Tj ET
+BT /F1 10 Tf 54 639.00 Td (- `main.cpp` owns orchestration and timing.) Tj ET
+BT /F1 10 Tf 54 626.00 Td (- `config.h` owns hardware/timing settings.) Tj ET
+BT /F1 10 Tf 54 613.00 Td (- `pms5003.*` owns PMS5003 protocol parsing.) Tj ET
+BT /F1 10 Tf 54 600.00 Td (- `mhz19.*` owns MH-Z19E protocol commands and parsing.) Tj ET
+BT /F1 10 Tf 54 587.00 Td (- `aqi.*` owns AQI domain logic.) Tj ET
+BT /F1 10 Tf 54 574.00 Td (- `ui.*` owns display rendering.) Tj ET
+BT /F1 10 Tf 54 555.00 Td (This is similar to separating a web app into:) Tj ET
+BT /F1 10 Tf 54 536.00 Td (- config) Tj ET
+BT /F1 10 Tf 54 523.00 Td (- API clients) Tj ET
+BT /F1 10 Tf 54 510.00 Td (- business/domain logic) Tj ET
+BT /F1 10 Tf 54 497.00 Td (- state orchestration) Tj ET
+BT /F1 10 Tf 54 484.00 Td (- UI components) Tj ET
+BT /F1 10 Tf 54 465.00 Td (The difference is that firmware code must also manage hardware timing,) Tj ET
+BT /F1 10 Tf 54 452.00 Td (byte-level protocols, limited RAM, and display redraw cost.) Tj ET
+BT /F2 14 Tf 54 425.00 Td (16. Important Firmware Patterns Used) Tj ET
+BT /F2 12 Tf 54 392.00 Td (Non-blocking state machine) Tj ET
+BT /F1 10 Tf 54 369.00 Td (The code does not sit inside long `delay\(\)` calls waiting for sensors. Instead,) Tj ET
+BT /F1 10 Tf 54 356.00 Td (it checks available bytes and timeouts on each `loop\(\)` pass.) Tj ET
+BT /F1 10 Tf 54 337.00 Td (This keeps the firmware responsive to button presses and serial input.) Tj ET
+BT /F2 12 Tf 54 312.00 Td (Validate before trusting sensor data) Tj ET
+BT /F1 10 Tf 54 289.00 Td (Both sensor drivers check frame shape and checksum before updating stored data.) Tj ET
+BT /F1 10 Tf 54 276.00 Td (This is important because serial bytes can be corrupted.) Tj ET
+BT /F2 12 Tf 54 251.00 Td (Use timestamps instead of blocking waits) Tj ET
+BT /F1 10 Tf 54 228.00 Td (The code uses:) Tj ET
+BT /F3 8.5 Tf 54 205.00 Td (now - phaseStart > TIMEOUT) Tj ET
+BT /F1 10 Tf 54 184.00 Td (This is the standard Arduino pattern for timeouts.) Tj ET
+BT /F1 10 Tf 54 165.00 Td (It is also safer than comparing absolute future times because `millis\(\)` will) Tj ET
+BT /F1 10 Tf 54 152.00 Td (eventually overflow. Unsigned subtraction keeps working across overflow for) Tj ET
+BT /F1 10 Tf 54 139.00 Td (interval checks.) Tj ET
+BT /F2 12 Tf 54 114.00 Td (Separate data from rendering) Tj ET
+BT /F1 10 Tf 54 91.00 Td (`UiModel` decouples measurement state from drawing. This makes the UI code) Tj ET
+BT /F1 10 Tf 54 78.00 Td (easier to change without touching sensor protocol code.) Tj ET
+endstream
+endobj
+33 0 obj
+<< /Length 3125 >>
+stream
+BT /F2 12 Tf 54 732.00 Td (Redraw static layout separately) Tj ET
+BT /F1 10 Tf 54 709.00 Td (The UI draws static frames/labels only when the screen changes. Live values are) Tj ET
+BT /F1 10 Tf 54 696.00 Td (updated separately. This reduces flicker and improves performance.) Tj ET
+BT /F2 14 Tf 54 669.00 Td (17. Things to Know or Watch) Tj ET
+BT /F2 12 Tf 54 636.00 Td (`aqiCategory\(-1\)` would return Good) Tj ET
+BT /F1 10 Tf 54 613.00 Td (The helper assumes it receives a valid AQI. If called with `-1`, it returns) Tj ET
+BT /F1 10 Tf 54 600.00 Td (`AQI_GOOD` because `-1 <= 50`.) Tj ET
+BT /F1 10 Tf 54 581.00 Td (Current callers avoid this by checking validity first. If future code calls) Tj ET
+BT /F1 10 Tf 54 568.00 Td (`aqiCategory` directly, it should guard against negative AQI values.) Tj ET
+BT /F2 12 Tf 54 543.00 Td (`main.cpp` banner says ILI9341) Tj ET
+BT /F1 10 Tf 54 520.00 Td (The setup banner says:) Tj ET
+BT /F3 8.5 Tf 54 497.00 Td (AQI Monitor v0.1.0 \(PMS5003 + MH-Z19E + ILI9341\)) Tj ET
+BT /F1 10 Tf 54 476.00 Td (But `platformio.ini` now defaults to ST7789. This looks like a stale log string) Tj ET
+BT /F1 10 Tf 54 463.00 Td (and could be updated to avoid confusion.) Tj ET
+BT /F2 12 Tf 54 438.00 Td (`ui.h` comment mentions future button) Tj ET
+BT /F1 10 Tf 54 415.00 Td (`ui.h` says screens are switched with `d` and future push button on D0. But) Tj ET
+BT /F1 10 Tf 54 402.00 Td (`main.cpp` already implements the D0 push button. This comment is stale.) Tj ET
+BT /F2 12 Tf 54 377.00 Td (`String` in embedded code) Tj ET
+BT /F1 10 Tf 54 354.00 Td (`ui.cpp` uses Arduino `String` in the details screen. That is convenient and) Tj ET
+BT /F1 10 Tf 54 341.00 Td (fine for this small use, but dynamic strings can fragment memory in long-running) Tj ET
+BT /F1 10 Tf 54 328.00 Td (embedded programs if heavily used. This code uses them lightly.) Tj ET
+BT /F2 12 Tf 54 303.00 Td (Instantaneous AQI approximation) Tj ET
+BT /F1 10 Tf 54 280.00 Td (The AQI comments correctly note that EPA breakpoints are defined for 24-hour) Tj ET
+BT /F1 10 Tf 54 267.00 Td (averages. This firmware applies them to current sensor readings as a consumer) Tj ET
+BT /F1 10 Tf 54 254.00 Td (monitor approximation.) Tj ET
+BT /F2 14 Tf 54 227.00 Td (18. Mental Model for a Web/Python Developer) Tj ET
+BT /F1 10 Tf 54 200.00 Td (Think of the project like this:) Tj ET
+BT /F3 8.5 Tf 54 177.00 Td (config.h       = constants/settings module) Tj ET
+BT /F3 8.5 Tf 54 166.00 Td (pms5003.cpp    = binary API client for PMS sensor) Tj ET
+BT /F3 8.5 Tf 54 155.00 Td (mhz19.cpp      = binary API client for CO2 sensor) Tj ET
+BT /F3 8.5 Tf 54 144.00 Td (aqi.cpp        = domain/business logic) Tj ET
+BT /F3 8.5 Tf 54 133.00 Td (ui.cpp         = canvas-style UI renderer) Tj ET
+BT /F3 8.5 Tf 54 122.00 Td (main.cpp       = app controller/event loop) Tj ET
+BT /F3 8.5 Tf 54 111.00 Td (platformio.ini = package/build/deployment config) Tj ET
+BT /F1 10 Tf 54 90.00 Td (Instead of HTTP requests, the "APIs" are UART byte streams.) Tj ET
+BT /F1 10 Tf 54 71.00 Td (Instead of React state, `UiModel` is a small manually updated state object.) Tj ET
+endstream
+endobj
+34 0 obj
+<< /Length 1258 >>
+stream
+BT /F1 10 Tf 54 732.00 Td (Instead of the browser rendering DOM, `ui.cpp` paints pixels onto a TFT screen.) Tj ET
+BT /F1 10 Tf 54 713.00 Td (Instead of async/await, the firmware uses a manual state machine driven by) Tj ET
+BT /F1 10 Tf 54 700.00 Td (`millis\(\)` and `poll\(\)` methods.) Tj ET
+BT /F2 14 Tf 54 673.00 Td (19. Glossary) Tj ET
+BT /F1 10 Tf 54 646.00 Td (- AQI: Air Quality Index.) Tj ET
+BT /F1 10 Tf 54 633.00 Td (- Baud: serial communication speed, roughly bits per second.) Tj ET
+BT /F1 10 Tf 54 620.00 Td (- Bit-banged: a protocol implemented in software timing instead of dedicated) Tj ET
+BT /F1 10 Tf 54 607.00 Td (  hardware.) Tj ET
+BT /F1 10 Tf 54 594.00 Td (- Checksum: a small computed value used to detect corrupted data.) Tj ET
+BT /F1 10 Tf 54 581.00 Td (- GPIO: general-purpose input/output pin.) Tj ET
+BT /F1 10 Tf 54 568.00 Td (- Header file: a `.h` file that declares functions/classes/types.) Tj ET
+BT /F1 10 Tf 54 555.00 Td (- RGB565: 16-bit color format used by small displays.) Tj ET
+BT /F1 10 Tf 54 542.00 Td (- SPI: fast bus commonly used for displays.) Tj ET
+BT /F1 10 Tf 54 529.00 Td (- TFT: thin-film transistor display.) Tj ET
+BT /F1 10 Tf 54 516.00 Td (- UART: serial communication protocol used by the sensors.) Tj ET
+endstream
+endobj
+35 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 4 0 R >>
+endobj
+36 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 5 0 R >>
+endobj
+37 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 6 0 R >>
+endobj
+38 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 7 0 R >>
+endobj
+39 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 8 0 R >>
+endobj
+40 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 9 0 R >>
+endobj
+41 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 10 0 R >>
+endobj
+42 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 11 0 R >>
+endobj
+43 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 12 0 R >>
+endobj
+44 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 13 0 R >>
+endobj
+45 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 14 0 R >>
+endobj
+46 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 15 0 R >>
+endobj
+47 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 16 0 R >>
+endobj
+48 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 17 0 R >>
+endobj
+49 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 18 0 R >>
+endobj
+50 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 19 0 R >>
+endobj
+51 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 20 0 R >>
+endobj
+52 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 21 0 R >>
+endobj
+53 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 22 0 R >>
+endobj
+54 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 23 0 R >>
+endobj
+55 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 24 0 R >>
+endobj
+56 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 25 0 R >>
+endobj
+57 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 26 0 R >>
+endobj
+58 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 27 0 R >>
+endobj
+59 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 28 0 R >>
+endobj
+60 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 29 0 R >>
+endobj
+61 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 30 0 R >>
+endobj
+62 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 31 0 R >>
+endobj
+63 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 32 0 R >>
+endobj
+64 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 33 0 R >>
+endobj
+65 0 obj
+<< /Type /Page /Parent 66 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 34 0 R >>
+endobj
+66 0 obj
+<< /Type /Pages /Kids [35 0 R 36 0 R 37 0 R 38 0 R 39 0 R 40 0 R 41 0 R 42 0 R 43 0 R 44 0 R 45 0 R 46 0 R 47 0 R 48 0 R 49 0 R 50 0 R 51 0 R 52 0 R 53 0 R 54 0 R 55 0 R 56 0 R 57 0 R 58 0 R 59 0 R 60 0 R 61 0 R 62 0 R 63 0 R 64 0 R 65 0 R] /Count 31 >>
+endobj
+67 0 obj
+<< /Type /Catalog /Pages 66 0 R >>
+endobj
+xref
+0 68
+0000000000 65535 f 
+0000000015 00000 n 
+0000000085 00000 n 
+0000000160 00000 n 
+0000000228 00000 n 
+0000003643 00000 n 
+0000006684 00000 n 
+0000009335 00000 n 
+0000012288 00000 n 
+0000015212 00000 n 
+0000018018 00000 n 
+0000021127 00000 n 
+0000024083 00000 n 
+0000026929 00000 n 
+0000029706 00000 n 
+0000032199 00000 n 
+0000035223 00000 n 
+0000037896 00000 n 
+0000040596 00000 n 
+0000043402 00000 n 
+0000046245 00000 n 
+0000048940 00000 n 
+0000051489 00000 n 
+0000054247 00000 n 
+0000056958 00000 n 
+0000059748 00000 n 
+0000062538 00000 n 
+0000065571 00000 n 
+0000068151 00000 n 
+0000070899 00000 n 
+0000073487 00000 n 
+0000076212 00000 n 
+0000079347 00000 n 
+0000082349 00000 n 
+0000085527 00000 n 
+0000086838 00000 n 
+0000086986 00000 n 
+0000087134 00000 n 
+0000087282 00000 n 
+0000087430 00000 n 
+0000087578 00000 n 
+0000087726 00000 n 
+0000087875 00000 n 
+0000088024 00000 n 
+0000088173 00000 n 
+0000088322 00000 n 
+0000088471 00000 n 
+0000088620 00000 n 
+0000088769 00000 n 
+0000088918 00000 n 
+0000089067 00000 n 
+0000089216 00000 n 
+0000089365 00000 n 
+0000089514 00000 n 
+0000089663 00000 n 
+0000089812 00000 n 
+0000089961 00000 n 
+0000090110 00000 n 
+0000090259 00000 n 
+0000090408 00000 n 
+0000090557 00000 n 
+0000090706 00000 n 
+0000090855 00000 n 
+0000091004 00000 n 
+0000091153 00000 n 
+0000091302 00000 n 
+0000091451 00000 n 
+0000091721 00000 n 
+trailer
+<< /Size 68 /Root 67 0 R >>
+startxref
+91772
+%%EOF

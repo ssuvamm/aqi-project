@@ -3,6 +3,45 @@
 All notable changes to the AQI Monitor project. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions are firmware versions.
 
+## [0.2.2] — 2026-07-17
+
+### Changed
+- AQI gauge now has a 2 px white frame (1 px black inset); marker moved 3 px
+  down to clear it.
+
+## [0.2.1] — 2026-07-17
+
+### Fixed
+- ST7789 colors: this panel needs `TFT_INVERSION_OFF` + `TFT_RGB_ORDER=TFT_BGR`
+  (photo showed photo-negative with red/blue swap: black→light grey, green
+  FRESH pill→purple, red gauge→yellow).
+
+### Added
+- Screen-toggle push button on D0 (wired **D0 ↔ 3V3**; GPIO16 only has an
+  internal pull-down, so HIGH = pressed). Serial `d` still works.
+- `docs/UI.md` — explanation of both screens, all thresholds and indicators.
+- FLASHING.md §3 expanded: device-monitor how-to, `d` command, FTDI-style
+  COM6 naming, LED heartbeat, boot-ROM garbage note.
+
+## [0.2.0] — 2026-07-17
+
+### Fixed
+- **Display driver**: the delivered 2.4" panel is the non-touch variant with an
+  ST7789V controller, not the listed ILI9341+XPT2046. Driving it as ILI9341
+  ignored rotation (80 px band of unwritten-GRAM noise) and swapped red/blue.
+  Default PlatformIO env now uses `ST7789_DRIVER`; `d1_mini_ili9341` env kept
+  as fallback.
+
+### Changed
+- Removed all touch support (no XPT2046 on the panel; polling a floating MISO
+  risked phantom screen toggles). Dashboard/details switching now via `d` on
+  the serial monitor; a push button on the freed D0 pin is on the roadmap.
+- UI redesign: header bar with status dot, card-based layout, black-on-color
+  category pills (AQI category + CO2 comfort), six-segment AQI gauge bar with
+  white position marker, PM tiles with per-pollutant sub-index coloring.
+- `upload_port = COM6` pinned in platformio.ini.
+- WIRING.md/CLAUDE.md updated: touch pins removed, D0 and D6 now free.
+
 ## [0.1.0] — 2026-07-17
 
 ### Added

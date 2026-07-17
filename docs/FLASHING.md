@@ -32,22 +32,34 @@ via its USB circuitry):
 PlatformIO auto-detects the COM port. To pin it explicitly, add
 `upload_port = COM5` (your port) to `platformio.ini`.
 
-## 3. Watch the logs
+## 3. Watch the logs (device monitor)
 
 ```powershell
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" device monitor
 ```
 
-115200 baud. Expected output:
+(or the plug icon in the VS Code PlatformIO toolbar). 115200 baud, port COM6
+is pinned in platformio.ini. Expected output, one line per 5 s cycle:
 
 ```
-AQI Monitor v0.1.0 (PMS5003 + MH-Z19E + ILI9341)
+AQI Monitor (PMS5003 + MH-Z19E)
 MH-Z19E ABC auto-calibration: on
 [     5s] PM1=3 PM2.5=5 PM10=6 ug/m3 | CO2=612 ppm T=23 C | AQI=21 ...
 ```
 
-Press `Ctrl+C` to exit the monitor. **The monitor must be closed before
-flashing again** (it holds the COM port).
+Things to know:
+
+- **Type `d` in the monitor** to switch the TFT between dashboard and details
+  (same as pressing the D0 push button).
+- Press `Ctrl+C` to exit. **The monitor must be closed before flashing again**
+  (it holds the COM port).
+- This board enumerates as **"USB Serial Port (COM6)"** — an FTDI-style name,
+  not the usual "USB-SERIAL CH340"; this D1 Mini clone uses a different
+  USB-serial chip. Works identically.
+- The onboard blue LED blinks every 5 s while running — that's the CO2 poll
+  sharing GPIO2. Blinking = firmware alive.
+- The garbled characters right after reset are the ESP8266 boot ROM printing
+  at 74880 baud — normal, ignore them.
 
 ## 4. First-boot expectations
 

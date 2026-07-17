@@ -1,10 +1,12 @@
 # Wiring Guide — AQI Monitor v1
 
 Hardware:
-- **ESP8266 D1 Mini V2** (NodeMCU-style, CH340 USB, 3.3 V logic, onboard 5V→3.3V regulator)
+- **ESP8266 D1 Mini V2** (NodeMCU-style, 3.3 V logic, onboard 5V→3.3V regulator)
 - **Plantower PMS5003** PM1.0/PM2.5/PM10 laser particle sensor
 - **Winsen MH-Z19E** NDIR CO2 sensor
-- **2.4" SPI TFT 240×320** (ILI9341 driver + XPT2046 resistive touch, robu.in module)
+- **2.4" SPI TFT 240×320, NON-touch** — delivered unit behaves as an **ST7789V**
+  controller (the robu listing said ILI9341+touch; the actual module has no
+  XPT2046 and needed the ST7789 driver). No touch pins are wired.
 
 > ⚠️ **Wire everything with USB disconnected.** Double-check 5V vs 3V3 rails before
 > powering up — the TFT and the ESP8266 are 3.3 V parts, the two sensors need 5 V
@@ -63,11 +65,7 @@ Notes:
 - Preheat time is 1 min; readings before that are ignored by the firmware.
 - Keep it away from the TFT/ESP heat and away from your own breath while testing.
 
-## 4. 2.4" ILI9341 TFT + XPT2046 touch (14-pin header row)
-
-The display and the touch controller share one SPI bus (SCK/MOSI), each with its
-own chip-select. **Two D1 Mini pins each feed two TFT pins** — use breadboard rows
-or Y-jumpers.
+## 4. 2.4" SPI TFT, non-touch (ST7789V)
 
 | TFT pin | D1 Mini | GPIO | Note |
 |---|---|---|---|
@@ -76,36 +74,49 @@ or Y-jumpers.
 | CS | **D8** | GPIO15 | display chip-select. D1 Mini's onboard pull-down keeps boot safe |
 | RESET | **RST** | — | display resets together with the ESP (`TFT_RST=-1` in platformio.ini) |
 | DC | **D3** | GPIO0 | data/command. Onboard pull-up keeps boot-strap safe |
-| SDI (MOSI) | **D7** | GPIO13 | shared with T_DIN |
-| SCK | **D5** | GPIO14 | shared with T_CLK |
+| SDI (MOSI) | **D7** | GPIO13 | |
+| SCK | **D5** | GPIO14 | |
 | LED | **3V3** | — | backlight, always on in v1 |
-| SDO (MISO) | **— (NC)** | — | deliberately NOT wired: ILI9341's SDO doesn't tri-state cleanly and would corrupt touch reads |
-| T_CLK | **D5** | GPIO14 | same wire as SCK |
-| T_CS | **D0** | GPIO16 | touch chip-select |
-| T_DIN | **D7** | GPIO13 | same wire as SDI |
-| T_DO | **D6** | GPIO12 | touch data out — the only MISO device on the bus |
-| T_IRQ | — (NC) | — | firmware polls pressure instead |
-| SD_CS / SD_MOSI / SD_MISO / SD_SCK | — (NC) | — | microSD slot unused in v1 |
+| SDO (MISO) | — (NC) | — | firmware never reads from the display |
 
 Notes:
 - Keep SPI wires short (≤15 cm); the bus runs at 27 MHz.
-- If the panel stays white: re-check CS/DC/RESET. If colors are inverted or the
-  image is mirrored, tell Claude — it's a one-line driver flag.
+- Driver selection lives in `platformio.ini`: default env `d1_mini` = ST7789
+  (matches this unit); env `d1_mini_ili9341` kept as fallback for a future
+  genuine ILI9341 panel.
+- Symptoms that identified the controller: with the ILI9341 driver the panel
+  ignored rotation (80 px noise band of unwritten GRAM) and swapped red/blue
+  (orange rendered as blue). If a replacement panel misbehaves: red/blue swap →
+  `TFT_RGB_ORDER`, photo-negative → `TFT_INVERSION_ON/OFF`.
 
-## 5. Complete D1 Mini pin budget
+## 5. Screen-toggle push button
+
+| Button leg | D1 Mini |
+|---|---|
+| one side | **D0** (GPIO16) |
+| other side | **3V3** |
+
+> ⚠️ **The button goes to 3V3, NOT to GND.** GPIO16 is the one ESP8266 pin with
+> only an internal pull-**down** (no pull-up 
+> exists on it). The firmware configures `INPUT_PULLDOWN_16` and treats
+> **HIGH = pressed**. A button to GND would read as "never pressed".
+
+No external resistor needed. Press = toggle dashboard/details.
+
+## 6. Complete D1 Mini pin budget
 
 | D1 Mini | GPIO | Used for | Boot-strap constraint |
 |---|---|---|---|
 | TX | GPIO1 | USB serial log (115200) | keep free |
 | RX | GPIO3 | USB serial / flashing | keep free |
-| D0 | GPIO16 | Touch T_CS | none (no interrupt pin — fine for CS) |
+| D0 | GPIO16 | Screen-toggle push button (other leg → **3V3**) | only pull-DOWN available; HIGH = pressed |
 | D1 | GPIO5 | MH-Z19E Tx → ESP | none |
 | D2 | GPIO4 | PMS5003 TXD → ESP | none |
 | D3 | GPIO0 | TFT DC | must be HIGH at boot — onboard pull-up, DC is an input on the TFT, safe |
 | D4 | GPIO2 | → MH-Z19E Rx | must be HIGH at boot — UART idle is HIGH, safe |
-| D5 | GPIO14 | SPI SCK (TFT + touch) | none |
-| D6 | GPIO12 | SPI MISO (touch T_DO only) | none |
-| D7 | GPIO13 | SPI MOSI (TFT + touch) | none |
+| D5 | GPIO14 | SPI SCK | none |
+| D6 | GPIO12 | SPI MISO — **unused/unwired**, claimable if SPI reads stay disabled | none |
+| D7 | GPIO13 | SPI MOSI | none |
 | D8 | GPIO15 | TFT CS | must be LOW at boot — onboard pull-down, safe |
 | A0 | ADC0 | free | reserved for future use |
 | 5V | — | PMS5003 + MH-Z19E power | |
@@ -113,15 +124,14 @@ Notes:
 | RST | — | TFT RESET | |
 | G | — | common ground | |
 
-Every GPIO is now allocated. Future expansions (more I2C sensors like BME280)
-would share D1/D2 as an I2C bus — that requires moving both UART sensors around,
-so plan with Claude first.
+Free for expansion: **A0** (and D6 with care). More I2C sensors (e.g.
+BME280) would still need a bus rework — discuss first.
 
 ## ASCII overview
 
 ```
                         ┌──────────────────────┐
-        PMS5003         │    ESP8266 D1 Mini   │          2.4" ILI9341 TFT
+        PMS5003         │    ESP8266 D1 Mini   │        2.4" TFT (ST7789, no touch)
      ┌───────────┐      │                      │         ┌───────────────┐
      │ 1 VCC ────┼──────┤ 5V              3V3  ├─────────┤ VCC           │
      │ 2 GND ────┼──────┤ G               3V3  ├─────────┤ LED           │
@@ -129,13 +139,10 @@ so plan with Claude first.
      └───────────┘      │                 D8   ├─────────┤ CS            │
                         │                 RST  ├─────────┤ RESET         │
         MH-Z19E         │                 D3   ├─────────┤ DC            │
-     ┌───────────┐      │                 D7   ├────┬────┤ SDI (MOSI)    │
-     │ Vin ──────┼──────┤ 5V              D5   ├─┬──┼────┤ SCK           │
-     │ GND ──────┼──────┤ G               │    │ │  │    │ SDO   (NC!)   │
-     │ Tx  ──────┼──────┤ D1              │    │ └──┼────┤ T_CLK         │
-     │ Rx  ──────┼──────┤ D4              D0   ├────┼────┤ T_CS          │
-     └───────────┘      │                 │    │    └────┤ T_DIN         │
-                        │                 D6   ├─────────┤ T_DO          │
-                        └──────────────────────┘         │ T_IRQ (NC)    │
-                                                         └───────────────┘
+     ┌───────────┐      │                 D7   ├─────────┤ SDI (MOSI)    │
+     │ Vin ──────┼──────┤ 5V              D5   ├─────────┤ SCK           │
+     │ GND ──────┼──────┤ G               │    │         │ SDO   (NC)    │
+     │ Tx  ──────┼──────┤ D1              D0   ├──[push button]── 3V3
+     │ Rx  ──────┼──────┤ D4              D6   │ (free)  └───────────────┘
+     └───────────┘      └──────────────────────┘
 ```

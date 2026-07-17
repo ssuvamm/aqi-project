@@ -10,7 +10,7 @@ No networking yet (planned). Owner: Suvam.
 | MCU board | ESP8266 D1 Mini V2 (CH340, 4 MB flash) | `docs/datasheets/ESP8266EX_datasheet.pdf` |
 | PM sensor | Plantower PMS5003 (UART 9600, active mode) | `docs/datasheets/PMS5003_datasheet.pdf` |
 | CO2 sensor | Winsen MH-Z19E (NDIR, UART 9600) | `docs/datasheets/MH-Z19E_datasheet.pdf` |
-| Display | 2.4" SPI 240×320 ILI9341 + XPT2046 touch (robu.in) | no PDF exists; pinout in `docs/WIRING.md` |
+| Display | 2.4" SPI 240×320, **non-touch, ST7789V** (robu listing claimed ILI9341+touch; delivered unit differs) | no PDF exists; pinout in `docs/WIRING.md` |
 
 **Pin map lives in two places (keep in sync):** sensor UART pins in
 `include/config.h`, TFT/touch pins in `platformio.ini` build_flags (TFT_eSPI
@@ -36,7 +36,7 @@ src/main.cpp     state machine: PMS_LISTEN → CO2_WAIT → IDLE (5 s cycle), ow
 src/pms5003.*    PMS5003 frame parser (32-byte active-mode frames, checksummed)
 src/mhz19.*      MH-Z19 family UART protocol (0x86 read, 0x79 ABC, 0x87 zero-cal)
 src/aqi.*        US EPA AQI math (2024 PM2.5 breakpoints) + CO2 comfort bands + colors
-src/ui.*         TFT_eSPI rendering; 2 screens (dashboard/details), touch toggles
+src/ui.*         TFT_eSPI rendering; 2 screens (dashboard/details), 'd' on serial toggles
 include/config.h pins, baud rates, timing constants, feature flags
 ```
 
@@ -50,8 +50,14 @@ include/config.h pins, baud rates, timing constants, feature flags
   end of a cycle (and on touch, which is tolerable).
 - Boot-strap pins are all safely occupied (D3=TFT DC, D4=UART TX idle-high,
   D8=TFT CS). Don't repurpose them without checking WIRING.md §5.
-- TFT SDO is deliberately not wired (ILI9341 doesn't tri-state MISO); touch
-  T_DO is the only MISO device. Don't enable TFT reads.
+- **The delivered display is NON-touch and behaves as ST7789V**, not the listed
+  ILI9341 (ILI9341 driver symptoms: ignored rotation + 80px noise band +
+  red/blue swap). Default pio env `d1_mini` = ST7789; `d1_mini_ili9341` is the
+  fallback for a future genuine ILI9341. This unit also needs
+  `TFT_INVERSION_OFF` + `TFT_RGB_ORDER=TFT_BGR` (photo-verified 2026-07-17).
+- Screen-toggle button on D0 wires to **3V3** (GPIO16 has only a pull-down;
+  HIGH = pressed). D6 (MISO) is unwired/claimable; A0 free.
+- TFT SDO is not wired; never enable TFT reads.
 - Sensors reject bad data by checksum; a missed frame just means the previous
   value stays until `DATA_STALE_MS`.
 
@@ -63,12 +69,15 @@ include/config.h pins, baud rates, timing constants, feature flags
   (`USER_SETUP_LOADED` pattern — the TFT_eSPI library itself stays pristine).
 - Datasheets for any new hardware get downloaded to `docs/datasheets/`.
 
-## Roadmap (agreed with owner: "expand as things grow")
+## Roadmap
 
-1. v1 (current): local display, touch screen-switch
-2. WiFi + web dashboard or MQTT/Home Assistant (needs config UI/captive portal)
-3. Data logging (LittleFS ring buffer or remote)
-4. Touch calibration + settings screen (MH-Z19E zero-cal button, ABC toggle,
-   backlight/night mode)
-5. Possible extra sensors (BME280 temp/hum/pressure) — **no free GPIOs**; would
-   need I2C bus rework, discuss first
+Current: v0.2.x — local display, screen switch via D0 button or serial 'd'.
+
+**The agreed forward plan lives in `docs/PLAN.md`** (revised 2026-07-17):
+product vision = **portable BLE accessory**, screen optional/removable.
+Migrate to **ESP32-C3** (kills SoftwareSerial — both sensors get hardware
+UARTs), BLE GATT service (live notify + time-sync-from-phone + chunked
+history), 1-min/90-day LittleFS log, Flutter Android app (flutter_blue_plus,
+SQLite archive, charts). Wire PMS5003 SET pin during the C3 rewire (battery
+lever). The ESP8266 WiFi plan is superseded; WiFi returns only as an optional
+"home dock" mode later.

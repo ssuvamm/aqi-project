@@ -9,6 +9,9 @@
 constexpr int PIN_PMS_RX = 4;   // D2  <- PMS5003 pin 5 (TXD)
 constexpr int PIN_MHZ_RX = 5;   // D1  <- MH-Z19E Tx
 constexpr int PIN_MHZ_TX = 2;   // D4  -> MH-Z19E Rx (also onboard LED: blinks on each CO2 poll)
+// Screen-toggle push button between D0 and 3V3. GPIO16 has only an internal
+// PULL-DOWN (no pull-up), so the button must feed 3V3 in; pressed = HIGH.
+constexpr int PIN_BUTTON = 16;  // D0
 
 // ============================================================================
 // Serial settings
